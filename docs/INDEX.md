@@ -1,6 +1,6 @@
 # Documentation index
 
-**Current (maintained):** `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE-MIGRATIONS.md`, `SECURITY-REVIEW.md`, `INTEGRATION-STATUS.md`, `PRODUCT-BUILD-STATUS.md`, `MOBILE-DEVICE-TEST-CHECKLIST.md`, `REPO-HYGIENE.md`, `DEPENDENCY-AUDIT.md`, `DB-SECURITY-AUDIT.md`, `FULL-PRODUCTION-GAP-ANALYSIS.md`, `MIGRATION-PROPOSAL-D1-D4.md` (proposal only, nothing applied), and `../CHANGELOG.md`.
+**Current (maintained):** `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE-MIGRATIONS.md`, `SECURITY-REVIEW.md`, `INTEGRATION-STATUS.md`, `PRODUCT-BUILD-STATUS.md`, `MOBILE-DEVICE-TEST-CHECKLIST.md`, `REPO-HYGIENE.md`, `DEPENDENCY-AUDIT.md`, `DB-SECURITY-AUDIT.md`, `FULL-PRODUCTION-GAP-ANALYSIS.md`, `ZOHO-INTEGRATION-ARCHITECTURE.md` (planning only), `MIGRATION-PROPOSAL-D1-D4.md` (proposal only, nothing applied), and `../CHANGELOG.md`.
 
 **Historical (point-in-time snapshots, kept for the audit trail; may be out of date):**
 | File | Snapshot of |
