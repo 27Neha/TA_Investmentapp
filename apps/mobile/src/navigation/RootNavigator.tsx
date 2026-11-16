@@ -11,10 +11,15 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
-import { ArticleScreen, ExploreScreen, SchemeScreen } from '../screens/explore/ExploreScreens';
-import { GoalDetailScreen, GoalFormScreen, GoalsScreen } from '../screens/goals/GoalsScreens';
+import { ArticleScreen, CategoryScreen, CompareScreen, ExploreScreen, SchemeScreen, WatchlistScreen } from '../screens/explore/ExploreScreens';
+import { ChallengeScreen, QuizScreen } from '../screens/learn/LearnScreens';
+import { InboxScreen } from '../screens/inbox/InboxScreen';
+import { FamilyHubScreen, FamilyMemberScreen } from '../screens/family/FamilyScreens';
+import { AccountRequestScreen, ConsentHistoryScreen, FaqScreen, LegalDocScreen, LegalScreen } from '../screens/legal/LegalScreens';
+import { RiskAssessScreen, RiskHistoryScreen, RiskHubScreen, RiskResultScreen } from '../screens/risk/RiskScreens';
+import { GoalCompareScreen, GoalDetailScreen, GoalFormScreen, GoalsScreen } from '../screens/goals/GoalsScreens';
 import { HomeScreen } from '../screens/home/HomeScreen';
-import { PortfolioScreen } from '../screens/portfolio/PortfolioScreen';
+import { PortfolioScreen, TransactionsScreen, WithdrawalScreen } from '../screens/portfolio/PortfolioScreen';
 import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, KycScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
 import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
 import { colors } from '../theme/tokens';
@@ -63,6 +68,26 @@ export default function RootNavigator() {
       <AppStack.Screen name="Notifications" component={NotificationsScreen} />
       <AppStack.Screen name="Security" component={SecurityScreen} />
       <AppStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <AppStack.Screen name="Inbox" component={InboxScreen} />
+      <AppStack.Screen name="Category" component={CategoryScreen} />
+      <AppStack.Screen name="Compare" component={CompareScreen} />
+      <AppStack.Screen name="Watchlist" component={WatchlistScreen} />
+      <AppStack.Screen name="Quiz" component={QuizScreen} />
+      <AppStack.Screen name="Challenge" component={ChallengeScreen} />
+      <AppStack.Screen name="GoalCompare" component={GoalCompareScreen} />
+      <AppStack.Screen name="RiskHub" component={RiskHubScreen} />
+      <AppStack.Screen name="RiskAssess" component={RiskAssessScreen} />
+      <AppStack.Screen name="RiskResult" component={RiskResultScreen} />
+      <AppStack.Screen name="RiskHistory" component={RiskHistoryScreen} />
+      <AppStack.Screen name="Transactions" component={TransactionsScreen} />
+      <AppStack.Screen name="Withdrawal" component={WithdrawalScreen} />
+      <AppStack.Screen name="FamilyHub" component={FamilyHubScreen} />
+      <AppStack.Screen name="FamilyMember" component={FamilyMemberScreen} />
+      <AppStack.Screen name="Legal" component={LegalScreen} />
+      <AppStack.Screen name="LegalDoc" component={LegalDocScreen} />
+      <AppStack.Screen name="ConsentHistory" component={ConsentHistoryScreen} />
+      <AppStack.Screen name="Faq" component={FaqScreen} />
+      <AppStack.Screen name="AccountRequest" component={AccountRequestScreen} />
     </AppStack.Navigator>
   );
   return (
@@ -73,6 +98,7 @@ export default function RootNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStack.Screen name="Support" component={SupportScreen} />
+      <AuthStack.Screen name="LegalDoc" component={LegalDocScreen} />
     </AuthStack.Navigator>
   );
 }

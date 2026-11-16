@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
+import { Pressable, Text, View } from 'react-native';
 import { Body, Button, Check, Field, Notice, Screen, Title } from '../../components/ui';
+import { colors, MIN_TOUCH, radii, spacing, type } from '../../theme/tokens';
 import { useI18n } from '../../i18n';
 
 const PW = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{10,128}$/;
@@ -48,7 +50,15 @@ export default function SignupScreen({ navigation }: any) {
       <Body muted>{t('signup.passwordHint')}</Body>
       <Field label={t('signup.confirm')} value={f.confirm} onChangeText={set('confirm')} secure rightLabel={{ show: t('login.show'), hide: t('login.hide') }} />
       {docs === null ? <Notice tone="error" text={t('signup.legalUnavailable')} /> : null}
-      {/* Consent is explicit: never preselected. */}
+            {/* Consent is explicit: never preselected; the checkboxes sit immediately above the submit button. */}
+      <View style={{ flexDirection: 'row', gap: spacing.lg, flexWrap: 'wrap' }}>
+        {(['TERMS', 'PRIVACY'] as const).map((k) => (
+          <Pressable key={k} accessibilityRole="link" accessibilityLabel={t(k === 'TERMS' ? 'signup.readTerms' : 'signup.readPrivacy')} onPress={() => navigation.navigate('LegalDoc', { kind: k })} style={{ minHeight: MIN_TOUCH, justifyContent: 'center' }}>
+            <Text style={[type.body, { color: colors.primary, textDecorationLine: 'underline' }]}>{t(k === 'TERMS' ? 'signup.readTerms' : 'signup.readPrivacy')}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Body muted>{t('signup.draftNotice')}</Body>
       <Check label={t('signup.acceptTerms')} value={terms} onChange={setTerms} />
       <Check label={t('signup.acceptPrivacy')} value={privacy} onChange={setPrivacy} />
       <Button label={t('common.continue')} onPress={submit} loading={busy} disabled={!terms || !privacy || !docs || docs === 'loading'} />

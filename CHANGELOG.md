@@ -30,3 +30,8 @@
 
 ## Milestone 4 (boundary only; provider integration blocked)
 - Fail-closed `TransactionProvider` boundary, `/v1/me/investing/status`, tests, and blocker documentation. No Cybrilla call implemented.
+
+## Product build (16 Nov 2026)
+- API: risk reassessment/history/compare, goals v2 (inflation, contributions, pause/resume/archive, compare, confirmed delete), explore v2 (cleaned NAV series, returns, history, compare, categories, watchlist, search history), market-data boundary, family groups, learning, notification centre + audit log, legal index and consent history, account requests, transactions/withdrawal boundary, Home/Portfolio v2. Migration `20261118000000_product_build` (+14 tables, RLS). 160 tests.
+- Mobile: chart library (react-native-svg), redesigned Home/Profile, Explore (5 tabs), Scheme/Compare/Watchlist, Games, Goals v2, Risk hub/assess/result/history, Portfolio/Transactions/Withdrawal, Family, Legal/Consent history/FAQ/Account requests, notification centre, signup consent links.
+- Config: `eas.json` (preview APK, production AAB), Android package `com.techartha.app` (confirm).

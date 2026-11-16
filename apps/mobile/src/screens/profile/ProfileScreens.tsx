@@ -3,7 +3,9 @@ import React, { useState } from 'react';
 import { Switch, Text, View } from 'react-native';
 import { api, tokens } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
+import { Avatar, Card, H2, NavRow, Small } from '../../components/cards';
 import { LoadGate, Row, useErrMsg, useLoad } from '../../components/kit';
+import { TranslationKey } from '../../i18n/en';
 import { Body, Button, Field, Notice, Screen, Title } from '../../components/ui';
 import { LOCALES, localeName, useI18n } from '../../i18n';
 import { colors, MIN_TOUCH, spacing, type } from '../../theme/tokens';
@@ -16,18 +18,35 @@ export function ProfileScreen() {
   const { logout } = useAuth();
   const nav = useNavigation<any>();
   const me = useLoad(() => api<any>('/v1/me', authed));
-  const items: [string, string][] = [
-    ['prof.personal', 'ObPersonal'], ['ob.step.address', 'ObAddress'], ['ob.step.bank', 'ObBank'], ['ob.step.nominee', 'ObNominee'], ['ob.step.risk', 'ObRisk'],
-    ['prof.kyc', 'Kyc'], ['prof.language', 'Language'], ['prof.notifications', 'Notifications'], ['prof.security', 'Security'], ['prof.password', 'ChangePassword'], ['profile.support', 'Support'],
+  const pending = useLoad(() => api<any[]>('/v1/me/consents/pending', authed).catch(() => [] as any[]));
+  React.useEffect(() => nav.addListener('focus', () => { me.reload(); pending.reload(); }), [nav, me.reload, pending.reload]);
+  const groups: { title: TranslationKey; rows: [TranslationKey, string, string?][] }[] = [
+    { title: 'pg.account', rows: [['prof.personal', 'ObPersonal'], ['ob.step.address', 'ObAddress'], ['ob.step.bank', 'ObBank'], ['ob.step.nominee', 'ObNominee'], ['prof.kyc', 'Kyc']] },
+    { title: 'pg.investment', rows: [['ob.step.risk', 'RiskHub'], ['risk.history', 'RiskHistory'], ['family.title', 'FamilyHub'], ['watch.title', 'Watchlist'], ['tx.title', 'Transactions'], ['wd.title', 'Withdrawal']] },
+    { title: 'pg.prefs', rows: [['prof.language', 'Language'], ['prof.notifications', 'Notifications'], ['inbox.title', 'Inbox']] },
+    { title: 'pg.security', rows: [['prof.security', 'Security'], ['prof.password', 'ChangePassword'], ['acct.title', 'AccountRequest']] },
+    { title: 'pg.help', rows: [['profile.support', 'Support'], ['faq.title', 'Faq']] },
+    { title: 'pg.legal', rows: [['legal.title', 'Legal', pending.data?.length ? t('consent.updatedShort') : undefined], ['legal.history', 'ConsentHistory']] },
   ];
   return (
     <Screen>
-      <Title>{t('prof.title')}</Title>
-      <LoadGate loading={me.loading} error={me.error} onRetry={me.reload}>
-        {me.data ? (<><Row label={t('signup.fullName')} value={me.data.fullName} /><Row label={t('signup.email')} value={me.data.email} /></>) : null}
+      <LoadGate loading={me.loading && !me.data} error={me.error} onRetry={me.reload}>
+        {me.data ? (
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+              <Avatar name={me.data.fullName} size={56} />
+              <View style={{ flex: 1 }}><Text style={[type.heading, { color: colors.text }]}>{me.data.fullName}</Text><Small>{me.data.email}</Small></View>
+            </View>
+          </Card>
+        ) : null}
       </LoadGate>
       <Button label={t('ob.continue')} onPress={() => nav.navigate('Onboarding')} />
-      {items.map(([k, route]) => <Button key={route} variant="secondary" label={t(k as any)} onPress={() => nav.navigate(route)} />)}
+      {groups.map((g) => (
+        <Card key={g.title}>
+          <H2>{t(g.title)}</H2>
+          {g.rows.map(([k, route, badge]) => <NavRow key={route} label={t(k)} badge={badge} onPress={() => nav.navigate(route)} />)}
+        </Card>
+      ))}
       <Button variant="link" label={t('profile.logout')} onPress={logout} />
     </Screen>
   );
