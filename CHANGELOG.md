@@ -24,3 +24,6 @@
 
 ## Milestone 2
 - Mobile onboarding (personal, guardian, address, bank, nominee, risk, consent, review, KYC status) and profile (language, notifications, security, change password) screens wired to authenticated `/v1/me/*` APIs; validation parity tests; RLS evaluation and drift/Docker/Supabase blocker documentation.
+
+## Milestone 3
+- Goals with illustrative calculator, fund search/NAV via market-data boundary, ArthaVerse content, Home aggregate and honest Portfolio empty state (API + mobile screens), with tests.

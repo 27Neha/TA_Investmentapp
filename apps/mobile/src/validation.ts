@@ -23,3 +23,9 @@ export const cleanPan = (s: string) => s.trim().toUpperCase();
 export const cleanIfsc = (s: string) => s.trim().toUpperCase();
 export const cleanAccount = (s: string) => s.replace(/\s/g, '');
 export const validPassword = (pw: string) => pw.length >= 10 && pw.length <= 128 && /[a-z]/.test(pw) && /[A-Z]/.test(pw) && /\d/.test(pw) && /[^A-Za-z0-9]/.test(pw);
+/** Strict real calendar date YYYY-MM-DD (no range rules). */
+export function parseDate(s: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(`${s}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : d;
+}

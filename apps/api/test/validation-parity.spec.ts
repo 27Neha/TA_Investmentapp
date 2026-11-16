@@ -40,3 +40,19 @@ describe('mobile/server validation parity', () => {
     expect(mobile.isMinorDob('2008-11-16', now)).toBe(false);
   });
 });
+
+import * as fmt from '../../mobile/src/format';
+describe('mobile formatting and date helpers', () => {
+  it('formats rupees with Indian grouping', () => {
+    expect(fmt.inr(0)).toBe('₹0'); expect(fmt.inr(999)).toBe('₹999'); expect(fmt.inr(1000)).toBe('₹1,000'); expect(fmt.inr(123456)).toBe('₹1,23,456');
+    expect(fmt.inr(12345678)).toBe('₹1,23,45,678'); expect(fmt.inr(1234.5)).toBe('₹1,234.50'); expect(fmt.inr(-2500)).toBe('-₹2,500');
+  });
+  it('parses money strictly', () => {
+    expect(fmt.parseMoney('1,00,000')).toBe(100000); expect(fmt.parseMoney('₹ 2500.75')).toBe(2500.75);
+    for (const bad of ['', 'abc', '-5', '1.234', '1e5']) expect(fmt.parseMoney(bad)).toBeNull();
+  });
+  it('months label', () => { expect(fmt.monthsLabel(0)).toBe('0m'); expect(fmt.monthsLabel(14)).toBe('1y 2m'); expect(fmt.monthsLabel(24)).toBe('2y'); });
+  it('parseDate accepts real calendar dates only', () => {
+    expect(mobile.parseDate('2036-04-01')).not.toBeNull(); expect(mobile.parseDate('2036-02-30')).toBeNull(); expect(mobile.parseDate('1/4/2036')).toBeNull();
+  });
+});

@@ -11,7 +11,10 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
-import { ExploreScreen, GoalsScreen, HomeScreen, PortfolioScreen } from '../screens/main/MainScreens';
+import { ArticleScreen, ExploreScreen, SchemeScreen } from '../screens/explore/ExploreScreens';
+import { GoalDetailScreen, GoalFormScreen, GoalsScreen } from '../screens/goals/GoalsScreens';
+import { HomeScreen } from '../screens/home/HomeScreen';
+import { PortfolioScreen } from '../screens/portfolio/PortfolioScreen';
 import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, KycScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
 import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
 import { colors } from '../theme/tokens';
@@ -51,6 +54,10 @@ export default function RootNavigator() {
       <AppStack.Screen name="ObRisk" component={RiskScreen} />
       <AppStack.Screen name="ObConsent" component={ConsentScreen} />
       <AppStack.Screen name="ObReview" component={ReviewScreen} />
+      <AppStack.Screen name="Article" component={ArticleScreen} />
+      <AppStack.Screen name="Scheme" component={SchemeScreen} />
+      <AppStack.Screen name="GoalForm" component={GoalFormScreen} />
+      <AppStack.Screen name="GoalDetail" component={GoalDetailScreen} />
       <AppStack.Screen name="Kyc" component={KycScreen} />
       <AppStack.Screen name="Language" component={LanguageScreen} />
       <AppStack.Screen name="Notifications" component={NotificationsScreen} />
