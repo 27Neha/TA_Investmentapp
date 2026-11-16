@@ -30,7 +30,16 @@ export interface SupportPort {
   sendAgentReply(externalTicketId: string, agentEmail: string, htmlOrText: string): Promise<{ threadId?: string }>;
   /** A user's follow-up. Design depends on the contact-authored-reply spike (docs/ZOHO-INTEGRATION-ARCHITECTURE.md 4.4). */
   addUserFollowUp(externalTicketId: string, userId: string, text: string): Promise<{ threadId?: string }>;
+  /** Optional: present only when inbound webhooks are verified (Desk webhooks need Professional edition+). Must verify the raw bytes and throw SupportWebhookRejectedError on failure. */
+  verifyAndNormalizeWebhook?(raw: Buffer, headers: Record<string, string | string[] | undefined>): SupportInboundEvent[];
 }
+
+/** Inbound change from the desk, already authenticated and normalised by the adapter. */
+export interface SupportInboundEvent {
+  eventId: string; externalTicketId: string; type: 'AGENT_REPLY' | 'STATUS_CHANGED';
+  status?: 'OPEN' | 'ON_HOLD' | 'ESCALATED' | 'CLOSED'; threadId?: string; authorName?: string; body?: string; occurredAt: Date;
+}
+export class SupportWebhookRejectedError extends Error { readonly code = 'WEBHOOK_REJECTED'; constructor(why: string) { super(`Support webhook rejected: ${why}`); } }
 
 export const SUPPORT_PORT = Symbol('SUPPORT_PORT');
 
