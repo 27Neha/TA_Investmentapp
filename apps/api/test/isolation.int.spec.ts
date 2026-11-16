@@ -268,20 +268,13 @@ d('M3 authorization and isolation (real PostgreSQL, API level)', () => {
       await http().post('/v1/auth/refresh').send({ refreshToken: u.refresh }).expect(401);
     });
 
-    // KNOWN GAP (docs/DB-SECURITY-AUDIT.md, S1): access tokens are stateless, so they keep working until they expire
-    // (default 15 minutes) after revoke-all / password change / suspension. `it.failing` passes while the gap exists and
-    // starts failing the day it is fixed, which is the signal to turn these into normal tests.
-    it.failing('GAP S1: an access token stops working immediately after revoke-all', async () => {
-      const u = await user();
-      await as(u.token).post('/v1/me/sessions/revoke-all').expect(200);
-      await as(u.token).get('/v1/me/profile').expect(401);
-    });
-    it('a suspended user is refused by endpoints that re-check status (profile)', async () => {
+    // S1 (docs/DB-SECURITY-AUDIT.md) is fixed: the guard re-checks the session and user on every request. Full matrix: test/session-validity.int.spec.ts
+    it('a suspended user is refused on profile', async () => {
       const u = await user();
       await prisma.user.update({ where: { id: u.id }, data: { status: 'SUSPENDED' } });
       await as(u.token).get('/v1/me/profile').expect(401);
     });
-    it.failing('GAP S1: a suspended user\'s still-valid access token is refused on every authenticated endpoint (goals, family, inbox)', async () => {
+    it('a suspended user\'s still-valid access token is refused on every authenticated endpoint (goals, family, inbox)', async () => {
       const u = await user();
       await prisma.user.update({ where: { id: u.id }, data: { status: 'SUSPENDED' } });
       for (const p of ['/v1/me/goals', '/v1/me/inbox', '/v1/me/family/invitations']) await as(u.token).get(p).expect(401);

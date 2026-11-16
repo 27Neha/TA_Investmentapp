@@ -5,6 +5,7 @@
 - M2: ESLint 9 + Prettier config (lenient baseline, no mass reformat), Node 22 `.nvmrc`/engines, API local `.env` loading outside production, GitHub Actions CI (disposable PostgreSQL only, separate API/mobile/admin jobs, report-only npm audit). CI not yet run on GitHub.
 - Deps: conservative audit remediation (express/body-parser/multer/qs/file-type/postcss via overrides; unused `@nestjs/config` removed); 8 findings remain, documented in `docs/DEPENDENCY-AUDIT.md`.
 - M3 (local/disposable DB only): isolation/authorization test suite, read-only Supabase audit script, `docs/DB-SECURITY-AUDIT.md`; fixed concurrent-signup and invite-accept 500s and duplicate open account requests.
+- S1 (security): access tokens carry the session id; the guard re-checks session validity, ACTIVE status and current role per request (indexed lookup, no migration). 9 new tests; the documented gap tests now pass.
 
 ## Phase 1 — Foundations (in progress)
 - Monorepo, `.env.example`, secret-safe `.gitignore`.

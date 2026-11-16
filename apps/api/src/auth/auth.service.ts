@@ -296,7 +296,7 @@ export class AuthService {
 
   private async issueTokens(user: User, familyId: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, role: user.role },
+      { sub: user.id, role: user.role, fid: familyId }, // fid = session (refresh-token family); the guard re-checks it on every request
       { secret: this.cfg.accessSecret, expiresIn: this.cfg.accessTtl },
     );
     const refreshToken = randomToken();

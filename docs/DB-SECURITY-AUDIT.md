@@ -13,7 +13,7 @@ Date: 16 Nov 2026. Branch `feat/phase-2-hardening`. **No live Supabase check was
 ## 2. Security weaknesses (prioritised)
 | # | Severity | Finding | Status |
 |---|---|---|---|
-| S1 | **Medium** | Access tokens are stateless (15 min). After revoke-all, password change, suspension or role change an already-issued access token keeps working until it expires; the guard checks signature and role claim only. Profile endpoints re-check `status`, but goals, family, inbox etc. do not. Documented by two `it.failing` tests that will flip when fixed. | **Open — design change needs your approval** |
+| S1 | **Medium** | Access tokens were stateless (15 min): after revoke-all, password change, suspension or role change an issued access token kept working until expiry. | **Fixed in code (no migration)** — see "S1 fix" below. |
 | S2 | Medium (unverified) | Prisma's `_prisma_migrations` table is created outside our migrations, so it very likely has **RLS disabled** and, on Supabase, default grants for `anon`/`authenticated`. It holds only migration names/checksums but is exposed through the Data API if that is enabled. | **UNVERIFIED**; run script section 2 and 4 |
 | S3 | Low (by design) | The API connects as the table owner, which bypasses RLS. Isolation therefore depends entirely on API code. Mitigated by the test suite above; never expose the DB role/service key to clients. | Accepted, documented |
 | S4 | Low | The Docker image is built with `npm ci -w api` (dev dependencies included), so `prisma` CLI and test tooling ship in the runtime image. | Hardening for the Docker milestone |
@@ -48,3 +48,13 @@ No policy-level isolation exists by design (see S3). In-code gaps found: **S1 on
 
 ## 8. Not verifiable from here
 Backups and point-in-time recovery (Supabase dashboard → Database → Backups), connection pooling mode, SSL enforcement, whether the Data API (PostgREST) is exposed, Supabase role grants, the real migration history and any real data. Please run `psql "$DIRECT_URL" -f apps/api/scripts/supabase-readonly-audit.sql` (read-only transaction, counts only, no personal data) and share the output; check the backup screens and tell me the PITR/retention settings.
+
+
+## S1 fix (implemented; code only, no schema change)
+
+- The access token now carries `fid` (the refresh-token family = session id). `JwtAuthGuard` verifies the JWT, requires `fid`, then does one read: the user must be `ACTIVE` **and** own a refresh-token row in that family that is not revoked and not expired. The role used for `@Roles` checks is the **current database role**, not the token claim.
+- Effects: logout, revoke-all, password change/reset and refresh-reuse revocation end the session on the next request; suspension/deletion is immediate on every authenticated endpoint; promotion/demotion takes effect without re-login.
+- Login and refresh behaviour is unchanged. Tokens issued before deployment have no `fid` and are refused once; clients refresh transparently (mobile client retries once after a 401; the admin BFF clears the session and returns to login). The mobile client clears stored tokens when refresh fails; no UI change was made.
+- Performance (disposable scratch DB, 50,000 users, 600,000 refresh-token rows): the lookup uses `User_pkey` plus the existing `RefreshToken_familyId_idx`/`RefreshToken_userId_idx` (bitmap AND); execution 0.05-0.16 ms, 9 buffer hits. No new index needed. If refresh-token volume grows by orders of magnitude, a partial index on `(familyId) WHERE revokedAt IS NULL` is an option (part of the migration proposal, not applied).
+- Tests: `apps/api/test/session-validity.int.spec.ts` (9 tests: valid session and rotation, logout, revoke-all, password change, refresh reuse, suspended/deleted, role change both ways, forged/legacy/foreign/expired tokens, public routes). Disabling the check makes 6 of them fail (mutation-checked). The two former `it.failing` GAP tests in `isolation.int.spec.ts` are now ordinary passing tests.
+- Residual: an access token is valid for one more request-time check only; there is no per-request DB check on public routes by design.
