@@ -1,3 +1,4 @@
+import { isUniqueViolation } from '../common/prisma-errors';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { normaliseEmail, randomToken, sha256 } from '../common/crypto';
 import { AuditService, InboxService } from '../inbox/inbox.service';
@@ -98,9 +99,18 @@ export class FamilyService {
     await this.assertAdult(uid);
     const inv = await this.pendingFor(uid, id);
     if (await this.membership(uid)) throw new ConflictException({ message: 'Leave your current family group before joining another.', code: 'ALREADY_IN_FAMILY' });
-    const claimed = await this.prisma.familyInvite.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'ACCEPTED' } });
-    if (!claimed.count) throw new ConflictException('This invitation was already used.');
-    await this.prisma.familyMember.create({ data: { groupId: inv.groupId, userId: uid, role: inv.role } });
+    // Claim + membership are one transaction: if a concurrent accept already made this user a member, the unique index
+    // rejects the second and the invitation claim is rolled back (it is not consumed without a membership).
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.familyInvite.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'ACCEPTED' } });
+        if (!claimed.count) throw new ConflictException('This invitation was already used.');
+        await tx.familyMember.create({ data: { groupId: inv.groupId, userId: uid, role: inv.role } });
+      });
+    } catch (e) {
+      if (isUniqueViolation(e)) throw new ConflictException({ message: 'Leave your current family group before joining another.', code: 'ALREADY_IN_FAMILY' });
+      throw e;
+    }
     await this.audit.record(uid, 'FAMILY_JOINED', 'FamilyGroup', inv.groupId);
     await this.inbox.notify(inv.invitedById, 'FAMILY', 'Invitation accepted', 'A family member accepted your invitation.');
     return this.mine(uid);
