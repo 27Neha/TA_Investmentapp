@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 /** Server-side authorisation: the page itself verifies the session and role with the API before rendering anything. */
 export default async function Dashboard() {
   const jar = await cookies();
-  let token = jar.get(AT)?.value;
+  const token = jar.get(AT)?.value;
   if (!token && jar.get(RT)) redirect('/api/auth/refresh-redirect'); // access cookie expired; BFF will renew on first data call
   if (!token) redirect('/');
   const r = await callApi('/v1/auth/me', { token });
