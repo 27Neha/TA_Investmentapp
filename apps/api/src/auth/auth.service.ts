@@ -20,6 +20,7 @@ import { ForgotPasswordDto, LoginDto, ResetPasswordDto, SignupDto, VerifyEmailDt
 export const MAX_FAILED_LOGINS = 5;
 export const LOCK_MINUTES = 15;
 export const RESET_TOKEN_TTL = '10m';
+export const STAFF_SESSION_MS = 8 * 60 * 60 * 1000; // admin/staff sessions expire after 8h
 export const GENERIC_OTP_MESSAGE = 'If this email is registered, a verification code has been sent.';
 const MIN_AGE_YEARS_FOR_SELF_ACCOUNT = 18;
 
@@ -91,9 +92,13 @@ export class AuthService {
         },
       },
     });
-    await this.sendEmailOtp(user, OtpPurpose.EMAIL_VERIFY, 'Verify your TechArtha email');
+    // Account + consent are already committed. If delivery fails the user recovers via "Resend code" — never a dead end.
+    const emailSent = await this.sendEmailOtp(user, OtpPurpose.EMAIL_VERIFY, 'Verify your TechArtha email').then(() => true, () => false);
     return {
-      message: 'Account created. Enter the code we emailed to verify your address.',
+      message: emailSent
+        ? 'Account created. Enter the code we emailed to verify your address.'
+        : 'Account created, but we could not send the email just now. Tap "Resend code" to try again.',
+      emailSent,
       requiresGuardian: isMinor(dob), // minor/guardian onboarding is enforced in Phase 2 before any investing
     };
   }
@@ -125,43 +130,41 @@ export class AuthService {
       throw new ForbiddenException('Too many attempts. Try again in a few minutes.');
     }
     if (!(await verifyPassword(user.passwordHash, dto.password))) {
-      const failed = user.failedLogins + 1;
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data:
-          failed >= MAX_FAILED_LOGINS
-            ? { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) }
-            : { failedLogins: failed },
-      });
+      // Atomic increment: concurrent wrong guesses cannot undercount.
+      const upd = await this.prisma.user.update({ where: { id: user.id }, data: { failedLogins: { increment: 1 } } });
+      if (upd.failedLogins >= MAX_FAILED_LOGINS) {
+        await this.prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: new Date(Date.now() + LOCK_MINUTES * 60_000) } });
+      }
       throw bad();
     }
-    if (!user.emailVerifiedAt) throw new ForbiddenException('Please verify your email before logging in.');
+    if (!user.emailVerifiedAt) {
+      throw new ForbiddenException({ message: 'Please verify your email before logging in.', code: 'EMAIL_NOT_VERIFIED' });
+    }
     await this.prisma.user.update({ where: { id: user.id }, data: { failedLogins: 0, lockedUntil: null } });
+    if (user.role !== Role.INVESTOR) {
+      await this.prisma.adminAuditEvent.create({ data: { actorId: user.id, action: 'STAFF_LOGIN', ipHash: ctx.ip ? sha256(ctx.ip) : null } }).catch(() => undefined);
+    }
     return this.issueTokens(user, randomUUID(), ctx);
   }
 
-  /** Rotating refresh tokens with reuse detection: replaying a rotated token revokes the whole family. */
+  /** Rotating refresh tokens with reuse detection. The old token is claimed ATOMICALLY first, so two concurrent
+   *  refreshes can never both succeed; a replay of a rotated token revokes the whole family. */
   async refresh(rawToken: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
-    const row = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash: sha256(rawToken) },
-      include: { user: true },
-    });
-    if (!row) throw new UnauthorizedException('Session expired. Please log in again.');
+    const expired = () => new UnauthorizedException('Session expired. Please log in again.');
+    const row = await this.prisma.refreshToken.findUnique({ where: { tokenHash: sha256(rawToken) }, include: { user: true } });
+    if (!row) throw expired();
     if (row.revokedAt) {
-      await this.prisma.refreshToken.updateMany({
-        where: { familyId: row.familyId, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
-      throw new UnauthorizedException('Session expired. Please log in again.');
+      await this.prisma.refreshToken.updateMany({ where: { familyId: row.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+      throw expired();
     }
-    if (row.expiresAt <= new Date() || row.user.status !== 'ACTIVE') {
-      throw new UnauthorizedException('Session expired. Please log in again.');
+    if (row.expiresAt <= new Date() || row.user.status !== 'ACTIVE') throw expired();
+    const claimed = await this.prisma.refreshToken.updateMany({ where: { id: row.id, revokedAt: null }, data: { revokedAt: new Date() } });
+    if (claimed.count !== 1) {
+      await this.prisma.refreshToken.updateMany({ where: { familyId: row.familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+      throw expired();
     }
     const pair = await this.issueTokens(row.user, row.familyId, ctx);
-    await this.prisma.refreshToken.update({
-      where: { id: row.id },
-      data: { revokedAt: new Date(), replacedBy: sha256(pair.refreshToken) },
-    });
+    await this.prisma.refreshToken.update({ where: { id: row.id }, data: { replacedBy: sha256(pair.refreshToken) } });
     return pair;
   }
 
@@ -205,28 +208,19 @@ export class AuthService {
     }
     if (payload.purpose !== 'password-reset') throw new BadRequestException('Reset session expired. Please start again.');
 
-    // Single-use: atomically mark the challenge's reset authorisation as used.
-    const claimed = await this.prisma.otpChallenge.updateMany({
-      where: { id: payload.cid, userId: payload.sub, purpose: OtpPurpose.PASSWORD_RESET, resetUsedAt: null },
-      data: { resetUsedAt: new Date() },
+    const passwordHash = await hashPassword(dto.newPassword);
+    // Claim + password update + session revocation are ONE transaction. Single-use still holds (the claim is atomic),
+    // but if anything fails after the claim, the whole thing rolls back and the user can retry until the token expires.
+    await this.prisma.$transaction(async (tx: any) => {
+      const claimed = await tx.otpChallenge.updateMany({
+        where: { id: payload.cid, userId: payload.sub, purpose: OtpPurpose.PASSWORD_RESET, resetUsedAt: null },
+        data: { resetUsedAt: new Date() },
+      });
+      if (claimed.count !== 1) throw new BadRequestException('Reset session expired. Please start again.');
+      await tx.user.update({ where: { id: payload.sub }, data: { passwordHash, failedLogins: 0, lockedUntil: null } });
+      await tx.otpChallenge.updateMany({ where: { userId: payload.sub, purpose: OtpPurpose.PASSWORD_RESET, consumedAt: null }, data: { consumedAt: new Date() } });
+      await tx.refreshToken.updateMany({ where: { userId: payload.sub, revokedAt: null }, data: { revokedAt: new Date() } });
     });
-    if (claimed.count !== 1) throw new BadRequestException('Reset session expired. Please start again.');
-
-    await this.prisma.$transaction([
-      this.prisma.user.update({
-        where: { id: payload.sub },
-        data: { passwordHash: await hashPassword(dto.newPassword), failedLogins: 0, lockedUntil: null },
-      }),
-      // Invalidate outstanding reset OTPs and every active session.
-      this.prisma.otpChallenge.updateMany({
-        where: { userId: payload.sub, purpose: OtpPurpose.PASSWORD_RESET, consumedAt: null },
-        data: { consumedAt: new Date() },
-      }),
-      this.prisma.refreshToken.updateMany({
-        where: { userId: payload.sub, revokedAt: null },
-        data: { revokedAt: new Date() },
-      }),
-    ]);
     return { message: 'Password updated. Please log in.' };
   }
 
@@ -239,18 +233,25 @@ export class AuthService {
   }
 
   private async sendEmailOtp(user: User, purpose: OtpPurpose, subject: string) {
-    const { code } = await this.otp.issue({
+    const { code, challengeId } = await this.otp.issue({
       userId: user.id,
       purpose,
       channel: OtpChannel.EMAIL,
       destination: user.email,
     });
-    const result = await this.email.send({
-      to: user.email,
-      subject,
-      text: `Your TechArtha verification code is ${code}. It expires in 5 minutes. Never share this code with anyone — TechArtha will never ask for it.`,
-    });
-    if (!result.accepted) throw new Error(`Email provider rejected OTP for ${maskEmail(user.email)}`);
+    const result = await this.email.send(
+      {
+        to: user.email,
+        subject,
+        text: `Your TechArtha verification code is ${code}. It expires in 5 minutes. Never share this code with anyone — TechArtha will never ask for it.`,
+      },
+      { userId: user.id, purpose },
+    );
+    if (!result.accepted) {
+      // The user never received this code, so do not make them sit out the resend cooldown.
+      await this.prisma.otpChallenge.update({ where: { id: challengeId }, data: { resendAfter: new Date() } }).catch(() => undefined);
+      throw new Error(`Email provider rejected OTP for ${maskEmail(user.email)}`);
+    }
   }
 
   private async issueTokens(user: User, familyId: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
@@ -264,7 +265,7 @@ export class AuthService {
         userId: user.id,
         tokenHash: sha256(refreshToken),
         familyId,
-        expiresAt: new Date(Date.now() + this.cfg.refreshTtlDays * 86_400_000),
+        expiresAt: new Date(Date.now() + (user.role === Role.INVESTOR ? this.cfg.refreshTtlDays * 86_400_000 : STAFF_SESSION_MS)),
         userAgent: ctx.userAgent?.slice(0, 200) ?? null,
         ipHash: ctx.ip ? sha256(ctx.ip) : null,
       },

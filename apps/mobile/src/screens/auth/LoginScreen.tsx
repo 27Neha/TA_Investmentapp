@@ -15,7 +15,10 @@ export default function LoginScreen({ navigation, route }: any) {
   const submit = async () => {
     setBusy(true); setErr(null);
     try { await login(email.trim().toLowerCase(), password); }
-    catch (e) { setErr(e instanceof ApiError && e.status === 0 ? t('common.error.network') : (e as Error).message); }
+    catch (e) {
+      if (e instanceof ApiError && e.code === 'EMAIL_NOT_VERIFIED') { navigation.navigate('VerifyEmail', { email: email.trim().toLowerCase(), resendNow: true }); return; }
+      setErr(e instanceof ApiError && e.status === 0 ? t('common.error.network') : (e as Error).message);
+    }
     finally { setBusy(false); }
   };
   return (

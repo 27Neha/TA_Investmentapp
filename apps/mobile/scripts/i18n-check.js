@@ -1,0 +1,25 @@
+/* Translation coverage + integrity report. Usage: node scripts/i18n-check.js  (exit 1 on integrity errors; missing keys are reported, not fatal: they fall back to English) */
+const fs = require('fs'); const path = require('path');
+const dir = path.join(__dirname, '../src/i18n');
+const keysOf = (f) => { const m = {}; for (const x of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/'([a-z]+(?:\.[A-Za-z0-9]+)+)':\s*'((?:[^'\\]|\\.)*)'/g)) m[x[1]] = x[2]; return m; };
+const registry = [...fs.readFileSync(path.join(dir, 'locales.ts'), 'utf8').matchAll(/code: '(\w+)'.*?legalReviewed: (true|false)/g)].map((m) => ({ code: m[1], legalReviewed: m[2] === 'true' }));
+const legalPrefixes = [...fs.readFileSync(path.join(dir, 'locales.ts'), 'utf8').match(/LEGAL_KEY_PREFIXES = \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+const en = keysOf('en.ts'); const enKeys = Object.keys(en);
+const vars = (s) => (s.match(/\{\w+\}/g) || []).sort().join(',');
+let errors = 0;
+console.log(`English keys: ${enKeys.length}\n`);
+for (const { code, legalReviewed } of registry) {
+  if (code === 'en') continue;
+  if (!fs.existsSync(path.join(dir, code + '.ts'))) { console.log(`${code}: NO CATALOG FILE`); errors++; continue; }
+  const c = keysOf(code + '.ts');
+  const missing = enKeys.filter((k) => !(k in c));
+  const unknown = Object.keys(c).filter((k) => !(k in en));
+  const badVars = Object.keys(c).filter((k) => k in en && vars(c[k]) !== vars(en[k]));
+  const legalMissing = missing.filter((k) => legalPrefixes.some((p) => k.startsWith(p)));
+  console.log(`${code}: translated ${enKeys.length - missing.length}/${enKeys.length}  missing ${missing.length}  unknown ${unknown.length}  placeholder-mismatch ${badVars.length}  legal-reviewed ${legalReviewed}`);
+  if (unknown.length) { console.log('  UNKNOWN KEYS:', unknown.join(', ')); errors++; }
+  if (badVars.length) { console.log('  PLACEHOLDER MISMATCH:', badVars.join(', ')); errors++; }
+  if (legalMissing.length) console.log('  LEGAL TEXT STILL ENGLISH (needs human translation):', legalMissing.join(', '));
+  if (missing.length) console.log('  missing (fall back to English):', missing.join(', '));
+}
+process.exit(errors ? 1 : 0);

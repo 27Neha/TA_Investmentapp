@@ -11,14 +11,17 @@ export interface AppConfig {
   refreshTtlDays: number;
   emailProvider: 'console' | 'zeptomail';
   zeptoToken?: string;
+  zeptoBase: string;
+  emailTimeoutMs: number;
+  emailRetryBaseMs: number;
   emailFromAddress: string;
   emailFromName: string;
 }
 
 const DEV_SECRET = 'dev-only-insecure-secret-do-not-use-in-production';
 
-function secret(name: string, isProd: boolean): string {
-  const v = process.env[name];
+function secret(name: string, isProd: boolean, env: NodeJS.ProcessEnv): string {
+  const v = env[name];
   if (v && v.length >= 32) return v;
   if (isProd) {
     throw new Error(`${name} must be set (min 32 chars) in production`);
@@ -36,6 +39,9 @@ export function loadConfig(env = process.env): AppConfig {
   if (isProd && env.AUTH_DEV_BYPASS === 'true') {
     throw new Error('AUTH_DEV_BYPASS must never be enabled in production');
   }
+  if (isProd && env.THROTTLE_DISABLED === 'true') {
+    throw new Error('THROTTLE_DISABLED must never be enabled in production');
+  }
   if (emailProvider === 'zeptomail' && !env.ZEPTOMAIL_SEND_MAIL_TOKEN) {
     throw new Error('ZEPTOMAIL_SEND_MAIL_TOKEN required when EMAIL_PROVIDER=zeptomail');
   }
@@ -44,14 +50,17 @@ export function loadConfig(env = process.env): AppConfig {
     isProd,
     port: Number(env.PORT ?? 3000),
     corsOrigins: (env.CORS_ORIGIN ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-    accessSecret: secret('JWT_ACCESS_SECRET', isProd),
-    refreshSecret: secret('JWT_REFRESH_SECRET', isProd),
-    resetSecret: secret('JWT_RESET_SECRET', isProd),
-    otpHmacSecret: secret('OTP_HMAC_SECRET', isProd),
+    accessSecret: secret('JWT_ACCESS_SECRET', isProd, env),
+    refreshSecret: secret('JWT_REFRESH_SECRET', isProd, env),
+    resetSecret: secret('JWT_RESET_SECRET', isProd, env),
+    otpHmacSecret: secret('OTP_HMAC_SECRET', isProd, env),
     accessTtl: env.ACCESS_TOKEN_TTL ?? '15m',
     refreshTtlDays: Number(env.REFRESH_TOKEN_TTL_DAYS ?? 30),
     emailProvider,
     zeptoToken: env.ZEPTOMAIL_SEND_MAIL_TOKEN,
+    zeptoBase: env.ZEPTOMAIL_API_BASE ?? 'https://api.zeptomail.in',
+    emailTimeoutMs: Number(env.EMAIL_TIMEOUT_MS ?? 8000),
+    emailRetryBaseMs: Number(env.EMAIL_RETRY_BASE_MS ?? 300),
     emailFromAddress: env.EMAIL_FROM_ADDRESS ?? 'support@techartha.com',
     emailFromName: env.EMAIL_FROM_NAME ?? 'TechArtha',
   };

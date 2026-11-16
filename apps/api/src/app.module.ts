@@ -17,7 +17,7 @@ class ConfigModule {}
 @Module({
   imports: [
     ConfigModule,
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120, skipIf: () => process.env.THROTTLE_DISABLED === 'true' }]),
     PrismaModule,
     AuthModule,
     FlagsModule,

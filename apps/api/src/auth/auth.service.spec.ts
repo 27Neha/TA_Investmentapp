@@ -13,9 +13,10 @@ function setup(user: any | null, extra: any = {}) {
     user: { findUnique: jest.fn(async () => user), update: jest.fn(async () => user), findFirst: jest.fn(async () => null) },
     refreshToken: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn(), updateMany: jest.fn(async () => ({ count: 1 })) },
     otpChallenge: { updateMany: jest.fn(async () => ({ count: 1 })) },
-    $transaction: jest.fn(async (ops: any[]) => Promise.all(ops)),
+    adminAuditEvent: { create: jest.fn(async () => ({})) },
     ...extra,
   };
+  prisma.$transaction = jest.fn(async (fn: any) => fn(prisma));
   const otp: any = { issue: jest.fn(async () => ({ code: '123456', challengeId: 'c1' })), verify: jest.fn() };
   const email: any = { send: jest.fn(async () => ({ accepted: true })) };
   return { svc: new AuthService(prisma, jwt, otp, email, cfg), prisma, otp, email };
@@ -43,8 +44,9 @@ describe('AuthService.login', () => {
   });
   it('locks account after repeated failures', async () => {
     const { svc, prisma } = setup(await activeUser({ failedLogins: MAX_FAILED_LOGINS - 1 }));
+    prisma.user.update.mockResolvedValueOnce({ failedLogins: MAX_FAILED_LOGINS });
     await expect(svc.login({ email: 'a@b.com', password: 'nope' }, {})).rejects.toBeInstanceOf(UnauthorizedException);
-    expect(prisma.user.update.mock.calls[0][0].data.lockedUntil).toBeInstanceOf(Date);
+    expect(prisma.user.update.mock.calls[1][0].data.lockedUntil).toBeInstanceOf(Date);
   });
   it('refuses while locked', async () => {
     const { svc } = setup(await activeUser({ lockedUntil: new Date(Date.now() + 60000) }));

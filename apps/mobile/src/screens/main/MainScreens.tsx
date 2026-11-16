@@ -2,7 +2,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { useAuth } from '../../auth/AuthContext';
 import { Body, Button, Notice, Screen, Title } from '../../components/ui';
-import { LOCALES, useI18n } from '../../i18n';
+import { LOCALES, localeName, useI18n } from '../../i18n';
 import { colors } from '../../theme/tokens';
 
 export function HomeScreen() {
@@ -23,7 +23,7 @@ export function ProfileScreen() {
     <Screen>
       <Title>{t('tabs.profile')}</Title>
       <Body muted>{t('profile.language')}</Body>
-      {LOCALES.map((l) => <Button key={l} variant={l === locale ? 'primary' : 'secondary'} label={t(`lang.${l}` as any)} onPress={() => setLocale(l)} />)}
+      {LOCALES.map((l) => <Button key={l} variant={l === locale ? 'primary' : 'secondary'} label={localeName(l)} onPress={() => setLocale(l)} />)}
       <Button variant="secondary" label={t('profile.logout')} onPress={logout} />
     </Screen>
   );

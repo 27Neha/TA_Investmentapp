@@ -5,7 +5,7 @@ const ACCESS = 'ta.access';
 const REFRESH = 'ta.refresh';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public code?: string) { super(message); }
 }
 
 export const tokens = {
@@ -49,7 +49,7 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const m = Array.isArray(json.message) ? json.message[0] : json.message;
-    throw new ApiError(res.status, m ?? 'Request failed');
+    throw new ApiError(res.status, m ?? 'Request failed', typeof json.code === 'string' ? json.code : undefined);
   }
   return json as T;
 }

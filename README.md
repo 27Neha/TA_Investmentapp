@@ -14,7 +14,8 @@ npm run start:dev                  # API on :3000
 cd ../mobile && npx expo install --fix && npx expo start   # align package versions to your Expo SDK, then run
 cd ../admin && npm run dev         # admin on :3001
 ```
-Tests: `npm run api:test`.
+Tests: `npm run api:test` (unit; integration tests skip without a DB). Full suite needs a THROWAWAY Postgres: `TEST_DATABASE_URL=... npm run test:int -w apps/api`.
+Status and blockers: `docs/PHASE-1-STATUS.md`. Migration steps: `docs/DATABASE-MIGRATIONS.md`.
 
 ## Principles (from the master prompt)
 No fake financial success. Live investing is feature-flagged OFF. Secrets are server-side only.

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from 'react-native';
 import { Body, Button, Screen, Title } from '../../components/ui';
-import { LOCALES, useI18n } from '../../i18n';
+import { LOCALES, localeName, useI18n } from '../../i18n';
 import { colors, spacing } from '../../theme/tokens';
 
 export default function WelcomeScreen({ navigation }: any) {
@@ -15,7 +15,7 @@ export default function WelcomeScreen({ navigation }: any) {
       <View style={{ gap: spacing.sm }}>
         <Text style={{ color: colors.textMuted }}>{t('lang.title')}</Text>
         <View style={{ flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' }}>
-          {LOCALES.map((l) => <Button key={l} variant={l === locale ? 'primary' : 'secondary'} label={t(`lang.${l}` as any)} onPress={() => setLocale(l)} />)}
+          {LOCALES.map((l) => <Button key={l} variant={l === locale ? 'primary' : 'secondary'} label={localeName(l)} onPress={() => setLocale(l)} />)}
         </View>
       </View>
       <View style={{ gap: spacing.md, marginTop: spacing.lg }}>

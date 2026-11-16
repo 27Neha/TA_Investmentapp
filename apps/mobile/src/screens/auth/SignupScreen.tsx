@@ -29,9 +29,9 @@ export default function SignupScreen({ navigation }: any) {
     if (docs === 'loading' || !docs) return setErr(t('signup.legalUnavailable'));
     setBusy(true);
     try {
-      await api('/v1/auth/signup', { body: { fullName: f.fullName, email: f.email.trim(), mobile: f.mobile, dateOfBirth: f.dob, password: f.password, locale,
+      const r = await api('/v1/auth/signup', { body: { fullName: f.fullName, email: f.email.trim(), mobile: f.mobile, dateOfBirth: f.dob, password: f.password, locale,
         acceptTerms: terms, acceptPrivacy: privacy, termsVersion: docs.terms!.version, privacyVersion: docs.privacy!.version } });
-      navigation.replace('VerifyEmail', { email: f.email.trim().toLowerCase() });
+      navigation.replace('VerifyEmail', { email: f.email.trim().toLowerCase(), notice: r.emailSent === false ? r.message : undefined });
     } catch (e) { setErr(e instanceof ApiError && e.status === 0 ? t('common.error.network') : (e as Error).message); }
     finally { setBusy(false); }
   };
