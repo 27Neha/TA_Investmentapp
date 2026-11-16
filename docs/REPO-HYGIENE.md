@@ -22,3 +22,8 @@
 ## Other observations (no action taken)
 - No repo-level LICENSE, CODEOWNERS, `.nvmrc`, `engines`, ESLint or Prettier config. Proposed for M2 together with CI.
 - `apps/mobile/dist` exists locally but is git-ignored (correct).
+
+## Update (M2)
+- Untracked `apps/admin/tsconfig.tsbuildinfo` and `apps/mobile/.claude/settings.json` (approved); `apps/mobile/.claude/` is now ignored.
+- `apps/mobile/AGENTS.md` navigation section corrected to React Navigation. `apps/mobile/LICENSE` kept unchanged.
+- Added `.nvmrc` (22), `engines`, ESLint/Prettier config, CI workflow.

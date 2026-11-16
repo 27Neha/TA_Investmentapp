@@ -3,7 +3,7 @@
 ## Environment variables
 Template: `.env.example` (copy to `apps/api/.env`). Variables the API reads are in `apps/api/src/common/config.ts`.
 
-**The API does not read `.env` itself.** Load it into your shell first.
+`npm run start:dev` loads `apps/api/.env` outside production (never overriding variables already set). The seed script, tests and production do **not** read it: export variables into your shell first, as below.
 
 Bash/macOS/Linux/WSL:
 ```bash
@@ -15,7 +15,7 @@ Windows PowerShell:
 cd apps\api
 Get-Content .env | Where-Object { $_ -match '^\s*[^#=\s]+=' } | ForEach-Object { $k,$v = $_ -split '=',2; [Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim().Trim('"'), 'Process') }
 ```
-(Prisma commands read `apps/api/.env` on their own; the seed script, API and tests need the variables exported.)
+(Prisma commands read `apps/api/.env` on their own; the seed script and tests need the variables exported.)
 
 | Variable | Dev | Production |
 |---|---|---|
@@ -55,6 +55,8 @@ Never point `TEST_DATABASE_URL`, `DATABASE_URL` or any command at Supabase produ
 | Translation integrity | `cd apps/mobile && npm run i18n:check` |
 | Android JS bundle (not an APK) | `cd apps/mobile && npm run export:android` |
 | Seed | `cd apps/api && npm run seed` |
+| Lint (all / per app) | `npm run lint` / `lint:api` / `lint:mobile` / `lint:admin` |
+| Format check / write | `npm run format:check` / `npm run format` (do not mass-format existing files without agreement) |
 
 ## Working agreements
 - Branch from the current feature branch, never commit to `main`, never force-push.
@@ -64,4 +66,4 @@ Never point `TEST_DATABASE_URL`, `DATABASE_URL` or any command at Supabase produ
 - Do not invent financial data. If a provider is missing, show "unavailable".
 
 ## Known gaps in the toolchain (tracked for later milestones)
-No CI, linting or mobile unit tests; the API does not load `.env`; `db:drift` has not been run; mobile dependency versions have not been checked against Expo SDK 58 with `expo-doctor`.
+No mobile unit tests; `db:drift` has not yet run anywhere (first run is in CI); the CI workflow has not yet run on GitHub; mobile dependency versions have not been checked against Expo SDK 58 with `expo-doctor`; lint has ~270 warnings (mostly `any`) to ratchet down; Prettier is not enforced.

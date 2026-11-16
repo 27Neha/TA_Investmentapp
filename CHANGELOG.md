@@ -1,5 +1,9 @@
 # Changelog
 
+## Phase 2 — Engineering hardening (branch feat/phase-2-hardening)
+- M0/M1: Phase 2 branch from ab890fc; README, ARCHITECTURE, DEVELOPMENT, docs index and hygiene review; `.env.example` fix (`MFAPI_BASE`); build cache and editor settings untracked.
+- M2: ESLint 9 + Prettier config (lenient baseline, no mass reformat), Node 22 `.nvmrc`/engines, API local `.env` loading outside production, GitHub Actions CI (disposable PostgreSQL only, separate API/mobile/admin jobs, report-only npm audit). CI not yet run on GitHub.
+
 ## Phase 1 — Foundations (in progress)
 - Monorepo, `.env.example`, secret-safe `.gitignore`.
 - API: Prisma schema (users, refresh tokens, hashed OTP challenges, consent, disclosures, feature flags, provider config, audit events).

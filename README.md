@@ -14,7 +14,7 @@ This repository is a monorepo (npm workspaces):
 ## Current status (read this first)
 - **Working and tested against a local PostgreSQL:** authentication, onboarding/profile, risk assessment, goals, fund exploration, family groups, learning, notifications, legal/consent records. See [`docs/PRODUCT-BUILD-STATUS.md`](docs/PRODUCT-BUILD-STATUS.md).
 - **Not available (clearly marked in the app):** investing, KYC/bank verification, holdings and transactions (need the Cybrilla integration), live index data and news.
-- **Never run on a real device, never built as an APK/AAB, never run against a real Supabase project.**
+- **Not yet verified:** on a physical device, as an APK/AAB, or by this repo's automated tests against the existing Supabase project (tests use a disposable local/CI PostgreSQL only; the existing Supabase setup is untouched).
 - No investment, NAV, or provider data is ever invented: unavailable features show an "unavailable" state.
 
 ## Prerequisites
@@ -33,7 +33,7 @@ npm install
 ### 1. Environment
 Copy `.env.example` to `apps/api/.env` and fill it in. **Never commit it** (`.env*` is git-ignored).
 
-> **Important:** the API does not load `.env` by itself. Only the Prisma CLI reads `apps/api/.env`. Export the variables into your shell before running the API, the seed script or tests (commands in [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)).
+> `npm run start:dev` loads `apps/api/.env` automatically **outside production** and never overrides variables already set in your shell. In production nothing is loaded from files: inject variables through the environment. The seed script and tests read the shell environment only (see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)).
 
 In development, missing secrets fall back to insecure dev values. In production the API refuses to start without strong secrets (see [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md#environment-variables)).
 
@@ -56,12 +56,13 @@ On a phone or emulator, `localhost` is the device itself. Use your computer's LA
 
 ## Tests and checks
 ```bash
+npm run lint                                           # ESLint (warnings allowed, errors fail)
 npm run api:test                                       # API unit tests (integration tests skip without a DB)
 cd apps/api && TEST_DATABASE_URL=postgresql://... npm run test:int   # full suite; TRUNCATES tables: throwaway DB only
 cd apps/mobile && npm run typecheck && npm run i18n:check
 cd apps/mobile && npm run export:android               # verifies the Android JS bundle builds (this is not an APK)
 ```
-There is no CI, no linting and no mobile unit-test setup yet; these are planned for later milestones.
+CI (`.github/workflows/ci.yml`) runs API, mobile and admin checks as separate jobs against a disposable PostgreSQL service container; no secrets, no Supabase. There is no mobile unit-test setup yet (planned). Formatting: `npm run format:check` is available but not enforced; existing files are not reformatted.
 
 ## Principles
 - No fake financial success. Live investing is feature-flagged OFF.
