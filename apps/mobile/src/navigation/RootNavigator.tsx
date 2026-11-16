@@ -24,6 +24,7 @@ import { HomeScreen } from '../screens/home/HomeScreen';
 import { PortfolioScreen, TransactionsScreen, WithdrawalScreen } from '../screens/portfolio/PortfolioScreen';
 import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
 import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
+import { GuardianHubScreen, GuardianLinkScreen } from '../screens/family/GuardianScreens';
 import { KycScreen } from '../screens/kyc/KycScreens';
 import { InvestScreen, MandatesScreen, PaymentDetailScreen, PaymentsScreen } from '../screens/invest/InvestScreens';
 import { colors } from '../theme/tokens';
@@ -54,6 +55,8 @@ export default function RootNavigator() {
     <AppStack.Navigator screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
       <AppStack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <AppStack.Screen name="Support" component={SupportScreen} />
+      <AppStack.Screen name="GuardianHub" component={GuardianHubScreen} />
+      <AppStack.Screen name="GuardianLink" component={GuardianLinkScreen} />
       <AppStack.Screen name="Tickets" component={TicketsScreen} />
       <AppStack.Screen name="TicketNew" component={TicketNewScreen} />
       <AppStack.Screen name="TicketDetail" component={TicketDetailScreen} />

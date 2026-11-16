@@ -31,4 +31,4 @@ export const LOCALE_REGISTRY: LocaleMeta[] = [
 ];
 
 /** Keys whose text is legally/financially material. These must never ship machine-translated. */
-export const LEGAL_KEY_PREFIXES = ['disclosure.', 'consent.', 'risk.', 'legal.', 'signup.accept', 'signup.legalUnavailable', 'kyc.', 'invest.', 'pay.', 'sip.', 'mandate.', 'guardian.consent'];
+export const LEGAL_KEY_PREFIXES = ['disclosure.', 'consent.', 'risk.', 'legal.', 'signup.accept', 'signup.legalUnavailable', 'kyc.', 'invest.', 'pay.', 'sip.', 'mandate.', 'guardian.'];
