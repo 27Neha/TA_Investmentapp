@@ -1,22 +1,31 @@
 # Implementation status matrix (honest, updated per commit)
 
-Legend: **DONE+TESTED** = implemented and covered by automated tests that actually ran; **CODE-ONLY** = implemented, not yet wired to routes/UI; **PROPOSED** = design/migration proposal only; **BLOCKED-PROVIDER**; **BLOCKED-APPROVAL**; **NOT STARTED**.
+Legend: **DONE+TESTED** = implemented and covered by automated tests that actually ran (local disposable PostgreSQL, fake providers); **UI-BUILT** = screen written, typechecked and bundled, **not exercised on a device**; **UNVERIFIED** = adapter/integration written but never run against the real service; **BLOCKED-PROVIDER**; **BLOCKED-APPROVAL**; **NOT STARTED**. Nothing is "live". Real financial operations are disabled (`investing.*` flags OFF, no provider connected).
 
 | Area | Status | Notes |
 |---|---|---|
-| Auth, OTP (email), S1 session validation, isolation tests | DONE+TESTED | 190 API tests at 949e2c2. ZeptoMail delivery itself **never verified** against the real service |
-| Payment state machine | DONE+TESTED (CODE-ONLY) | `integrations/lifecycle/payment.ts`; client redirect can never yield SUCCESS; duplicates idempotent |
-| Mandate and SIP state machines | DONE+TESTED (CODE-ONLY) | Separate types; SIP activates only from provider-verified mandate |
-| Webhook verification helpers (HMAC, HS256 JWT) | DONE+TESTED (CODE-ONLY) | Provider-neutral; **not bound** to Zoho/Cybrilla until their specs are verified |
-| Sensitive-data guard, attachment policy | DONE+TESTED (CODE-ONLY) | Not yet applied to routes |
-| Zoho Desk adapter + port + factory (fail-closed default) | CODE-ONLY, **UNVERIFIED** | Tested only against a fake HTTP layer; no real Zoho call; follow-up API explicitly unverified |
-| Auth/OTP independence from Desk | DONE+TESTED | Static test forbids imports |
-| Guardian accounts/permissions | PROPOSED (migration) | Needs approval + compliance review; minor investing stays disabled |
-| Support tickets, mirror, mobile screens, admin mirror | BLOCKED-APPROVAL (migration) + BLOCKED-PROVIDER (Desk credentials/entitlements) | Zoho setup list in ZOHO-SETUP-REQUIRED.md |
-| Payments/mandates/SIP persistence, endpoints, mobile screens | BLOCKED-APPROVAL (migration); provider calls BLOCKED-PROVIDER | Screens are built after tables exist so every screen reads real backend status |
-| ZeptoMail webhooks (bounce/open) | NOT STARTED (needs `ProviderWebhookEvent` table) | |
-| SMS / WhatsApp OTP | NOT STARTED, BLOCKED-PROVIDER (DLT, templates) | |
-| Hindi/Marathi translations | NOT STARTED for legal/financial text (needs human review) | Mr 40/605 translated |
-| Admin portal user/support/mandate views | NOT STARTED | Needs tables |
-| Deployment/monitoring docs, APK/AAB, device tests | NOT STARTED | Physical device and package ID needed from you |
-| Cybrilla | BLOCKED-PROVIDER | No docs/sandbox/credentials |
+| Auth, email OTP, S1 session re-validation, isolation tests | DONE+TESTED | ZeptoMail delivery **never verified** against the real service |
+| Platform schema (47 tables) + KYC schema (50 tables) | DONE+TESTED on disposable DB; **NOT applied to Supabase** (BLOCKED-APPROVAL) | fresh apply, rollback, re-apply verified locally; Prisma `db:drift` only runs in CI |
+| Payment / mandate / SIP: engine, persistence, endpoints, gate | DONE+TESTED against a fake provider | `BLOCKED-PROVIDER` for Cybrilla (no credentials/docs); success only from provider-verified events |
+| Payment / mandate / SIP / invest mobile screens | UI-BUILT | entry points disabled with the server's reasons while the gate fails |
+| Support tickets (API, outbox, honest delivery state) | DONE+TESTED against a fake desk | Zoho Desk adapter **UNVERIFIED**; user follow-up to Desk blocked (`CapabilityUnverifiedError`); attachment forwarding to Desk **NOT IMPLEMENTED** |
+| Support attachments (private bucket, signed URLs, 5 MB PDF/PNG/JPEG) | DONE+TESTED with a fake store | Supabase adapter **UNVERIFIED**; the app cannot add attachments yet (no file-picker dependency added), it can open existing ones |
+| Support mobile screens | UI-BUILT | list, new, detail |
+| Guardian links/permissions (API) | DONE+TESTED; flag `guardian.accounts` OFF | read-only scopes only; TRANSACT/MANAGE_PROFILE/VIEW_PORTFOLIO/VIEW_TRANSACTIONS disabled in code; consent text is a **draft awaiting legal approval**; compliance approval is the activation gate |
+| Guardian mobile screens | UI-BUILT | |
+| KYC state machine, consent, provider port, masked identifiers, reviewer queue | DONE+TESTED against a fake provider | no real KYC provider: users stay "pending"; never verified from upload/checkbox; admin approval needs flag `kyc.admin_approval` + provider evidence |
+| KYC mobile journey | UI-BUILT | honest "partner not connected" state |
+| 12-question risk engine `ta-risk-v1`, server scoring, history, docs | DONE+TESTED (46 unit + 8 integration) | methodology awaits compliance approval; `docs/RISK-SCORING-METHODOLOGY.md`; client cannot set score/band |
+| Riskometer + 12-question mobile flow | UI-BUILT | animation/reduce-motion/screen reader unverified on device |
+| Scheme-Riskometer suitability link into fund discovery | NOT STARTED (needs verified scheme risk data); engine function exists | personal profile is never presented as a scheme Riskometer |
+| Admin read-only views (support, payments, mandates/SIPs, KYC review, guardian) | DONE+TESTED (API); UI built, `next build` passes | role-gated, masked, no write routes except audited KYC decisions |
+| Localisation: registry, 13 languages, guards | DONE+TESTED (parity + check script) | 40 draft UI labels in 12 languages; legal/financial/risk text English; Odia/Urdu **proposed**; see `LOCALIZATION.md` |
+| ZeptoMail bounce/open webhooks, honest delivery status | NOT STARTED, BLOCKED-PROVIDER | `zeptomail` is allowed in the webhook table; needs sender-domain and webhook spec |
+| SMS / WhatsApp OTP | NOT STARTED, BLOCKED-PROVIDER | DLT, templates |
+| Retention | documented only (`RETENTION-CONFIGURATION.md`) | no deletion/anonymisation jobs |
+| Admin writes beyond flags/KYC decision | NOT STARTED | by design |
+| Release: APK/AAB, device tests, deployment | NOT DONE | see `RELEASE-READINESS.md`; package ID unconfirmed |
+| Cybrilla | BLOCKED-PROVIDER | no docs/sandbox/credentials |
+
+## Verification at the latest commit
+API: 349/349 tests, typecheck, build. Root ESLint 0 errors. Mobile: `tsc`, `i18n:check`, Android export. Admin: `next build`. Prod audit: 8 findings (3 high, 5 moderate) remain, documented. GitHub Actions and `db:drift` not run here. No device/emulator testing.
