@@ -6,6 +6,17 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ConsentController {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Public index of the current legal documents (version + effective date), for Profile > Legal and Disclosures. */
+  @Get() async index(@Query('locale') locale = 'en') {
+    const out: any[] = [];
+    for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR', 'SCHEME']) {
+      const where = { kind, effectiveFrom: { lte: new Date() } };
+      const d = (await this.prisma.disclosureVersion.findFirst({ where: { ...where, locale }, orderBy: { effectiveFrom: 'desc' } })) ?? (await this.prisma.disclosureVersion.findFirst({ where: { ...where, locale: 'en' }, orderBy: { effectiveFrom: 'desc' } }));
+      if (d) out.push({ kind: d.kind, version: d.version, title: d.title, effectiveFrom: d.effectiveFrom, locale: d.locale, reviewed: Boolean(d.reviewedBy) });
+    }
+    return out;
+  }
+
   @Get('latest')
   async latest(@Query('kind') kind = 'TERMS', @Query('locale') locale = 'en') {
     const where = { kind, effectiveFrom: { lte: new Date() } };

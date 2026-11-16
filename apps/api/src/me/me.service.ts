@@ -165,11 +165,11 @@ export class MeService {
   async consents(uid: string) {
     const u = await this.user(uid);
     const out: any[] = [];
-    for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR']) {
+    for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR', 'SCHEME']) {
       const d = await this.latestDisclosure(kind, u.locale);
       if (!d) continue;
       const accepted = await this.prisma.consentRecord.findFirst({ where: { userId: uid, accepted: true, disclosure: { kind, version: d.version } } });
-      out.push({ kind, version: d.version, title: d.title, reviewed: Boolean(d.reviewedBy), required: REQUIRED_CONSENTS.includes(kind), accepted: Boolean(accepted) });
+      out.push({ kind, version: d.version, effectiveFrom: d.effectiveFrom, title: d.title, reviewed: Boolean(d.reviewedBy), required: REQUIRED_CONSENTS.includes(kind), accepted: Boolean(accepted) });
     }
     return out;
   }
@@ -181,6 +181,14 @@ export class MeService {
       await this.prisma.consentRecord.create({ data: { userId: uid, disclosureId: d.id, accepted: true, locale: d.locale, userAgent: ctx.userAgent?.slice(0, 200) ?? null } });
     }
     return this.consents(uid);
+  }
+
+  /** Required documents whose CURRENT version the user has not accepted (first-time or after a material update). */
+  async pendingFor(uid: string) { return (await this.consents(uid)).filter((c) => c.required && !c.accepted).map((c) => ({ kind: c.kind, version: c.version, title: c.title })); }
+  /** Every acceptance ever recorded, newest first. Records are never edited or removed. */
+  async consentHistory(uid: string) {
+    const rows = await this.prisma.consentRecord.findMany({ where: { userId: uid }, include: { disclosure: true }, orderBy: { createdAt: 'desc' }, take: 100 });
+    return rows.map((r) => ({ kind: r.disclosure.kind, version: r.disclosure.version, title: r.disclosure.title, accepted: r.accepted, acceptedAt: r.createdAt, locale: r.locale, reviewedDocument: Boolean(r.disclosure.reviewedBy) }));
   }
 
   // ---- Onboarding status / confirmation ----

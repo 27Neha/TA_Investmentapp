@@ -8,6 +8,11 @@ import { FlagsModule } from './flags/flags.module';
 import { HealthController } from './health/health.controller';
 import { GoalsModule } from './goals/goals.module';
 import { InvestingModule } from './investing/investing.module';
+import { AccountModule } from './account/account.controller';
+import { LearnModule } from './learn/learn.module';
+import { FamilyModule } from './family/family.module';
+import { InboxModule } from './inbox/inbox.module';
+import { RiskModule } from './risk/risk.module';
 import { MarketModule } from './market/market.module';
 import { MeModule } from './me/me.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -30,6 +35,11 @@ class ConfigModule {}
     GoalsModule,
     MarketModule,
     InvestingModule,
+    InboxModule,
+    RiskModule,
+    FamilyModule,
+    LearnModule,
+    AccountModule,
   ],
   controllers: [HealthController, ConsentController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

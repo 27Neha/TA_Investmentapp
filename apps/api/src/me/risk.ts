@@ -19,3 +19,22 @@ export function scoreRisk(answers: Record<string, string>): { score: number; ban
   }
   return { score, band: score <= 9 ? 'CONSERVATIVE' : score <= 15 ? 'MODERATE' : 'AGGRESSIVE' };
 }
+
+/** Transparent, replaceable framework description. Replace RISK_QUESTIONS/thresholds with the approved set; bump RISK_VERSION so history stays comparable. */
+export const RISK_FRAMEWORK = {
+  version: RISK_VERSION,
+  approved: false,
+  dimensions: ['investment horizon', 'reaction to a fall in value', 'income stability', 'investment experience', 'main objective'],
+  maxScore: RISK_QUESTIONS.length * 4,
+  bands: [
+    { band: 'CONSERVATIVE', rule: 'score of 9 or less' },
+    { band: 'MODERATE', rule: 'score of 10 to 15' },
+    { band: 'AGGRESSIVE', rule: 'score of 16 or more' },
+  ],
+};
+export const BAND_EXPLANATION: Record<string, string> = {
+  CONSERVATIVE: 'Your answers suggest you prefer stability and may be uncomfortable with large swings in value. This describes your own preferences; it is not a recommendation.',
+  MODERATE: 'Your answers suggest you can accept some ups and downs in exchange for the chance of growth. This describes your own preferences; it is not a recommendation.',
+  AGGRESSIVE: 'Your answers suggest you are comfortable with larger swings in value for the chance of higher growth. This describes your own preferences; it is not a recommendation.',
+};
+export const BAND_ORDER = ['CONSERVATIVE', 'MODERATE', 'AGGRESSIVE'];

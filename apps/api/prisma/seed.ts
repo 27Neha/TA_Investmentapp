@@ -6,8 +6,8 @@ import { hashPassword, validatePasswordStrength } from '../src/common/password';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 async function main() {
-  const TITLES: Record<string, string> = { TERMS: 'Terms of Use', PRIVACY: 'Privacy Policy', RISK: 'Mutual Fund Risk Disclosure', DISTRIBUTOR: 'Distributor Disclosure' };
-  for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR']) {
+  const TITLES: Record<string, string> = { TERMS: 'Terms of Use', PRIVACY: 'Privacy Policy', RISK: 'Mutual Fund Risk Disclosure', DISTRIBUTOR: 'Distributor Disclosure', SCHEME: 'Scheme-related Disclosures' };
+  for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR', 'SCHEME']) {
     await prisma.disclosureVersion.upsert({
       where: { kind_version_locale: { kind, version: '0.1-draft', locale: 'en' } },
       update: {},

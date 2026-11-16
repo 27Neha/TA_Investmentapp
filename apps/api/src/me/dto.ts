@@ -60,7 +60,7 @@ export class GuardianDto {
 }
 
 export class AcceptConsentsDto {
-  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5) @IsIn(['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR'], { each: true }) kinds: string[];
+  @IsArray() @ArrayMinSize(1) @ArrayMaxSize(5) @IsIn(['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR', 'SCHEME'], { each: true }) kinds: string[];
 }
 
 export class LocaleDto { @IsIn(SUPPORTED_LOCALES as unknown as string[]) locale: string; }

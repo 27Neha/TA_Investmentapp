@@ -56,7 +56,7 @@ d('M3 goals, explore, home and portfolio against real PostgreSQL', () => {
       expect((await a.get('/v1/me/goals').expect(200)).body).toHaveLength(1);
       const u = await a.put(`/v1/me/goals/${c.body.id}`, { ...GOAL, monthlyContribution: 50000 }).expect(200);
       expect(u.body.plan.onTrack).toBe(true);
-      await a.del(`/v1/me/goals/${c.body.id}`).expect(200);
+      await a.del(`/v1/me/goals/${c.body.id}?confirm=yes`).expect(200);
       expect((await a.get('/v1/me/goals').expect(200)).body).toHaveLength(0);
       await a.get(`/v1/me/goals/${c.body.id}`).expect(404);
     });
@@ -70,7 +70,7 @@ d('M3 goals, explore, home and portfolio against real PostgreSQL', () => {
       const g = (await A.post('/v1/me/goals', GOAL).expect(201)).body;
       await B.get(`/v1/me/goals/${g.id}`).expect(404);
       await B.put(`/v1/me/goals/${g.id}`, { ...GOAL, name: 'hijacked' }).expect(404);
-      await B.del(`/v1/me/goals/${g.id}`).expect(404);
+      await B.del(`/v1/me/goals/${g.id}?confirm=yes`).expect(404);
       expect((await B.get('/v1/me/goals').expect(200)).body).toEqual([]);
       expect((await A.get(`/v1/me/goals/${g.id}`).expect(200)).body.name).toBe('Child education');
       await A.get('/v1/me/goals/not-a-uuid').expect(400);
@@ -126,8 +126,10 @@ d('M3 goals, explore, home and portfolio against real PostgreSQL', () => {
       const a = as((await user()).token);
       let r = (await a.get('/v1/me/home').expect(200)).body;
       expect(r.onboarding.nextStep).toBe('personal');
-      expect(r.goals).toEqual({ count: 0, nearest: null });
-      expect(r.portfolio).toEqual({ connected: false });
+      expect(r.goals).toMatchObject({ count: 0, nearest: null, top: [] });
+      expect(r.portfolio).toMatchObject({ connected: false, summary: null, message: 'Portfolio connection pending' });
+      expect(r.market.available).toBe(false);
+      expect(r.insights.map((i: any) => i.key)).toEqual(expect.arrayContaining(['ONBOARDING_INCOMPLETE', 'RISK_PENDING']));
       await a.post('/v1/me/goals', GOAL).expect(201);
       await a.post('/v1/me/goals', { ...GOAL, name: 'Sooner', targetDate: future(3) }).expect(201);
       r = (await a.get('/v1/me/home').expect(200)).body;
