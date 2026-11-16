@@ -1,0 +1,164 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+  previewFeatures = ["queryCompiler", "driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  INVESTOR
+  SUPPORT
+  OPERATIONS
+  COMPLIANCE
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFY
+  MOBILE_VERIFY
+  PASSWORD_RESET
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  emailVerifiedAt DateTime?
+  mobile          String?    @unique
+  mobileVerifiedAt DateTime?
+  fullName        String
+  dateOfBirth     DateTime?  @db.Date
+  passwordHash    String
+  role            Role       @default(INVESTOR)
+  status          UserStatus @default(ACTIVE)
+  locale          String     @default("en")
+  failedLogins    Int        @default(0)
+  lockedUntil     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  refreshTokens RefreshToken[]
+  otpChallenges OtpChallenge[]
+  consents      ConsentRecord[]
+  auditEvents   AdminAuditEvent[] @relation("AuditActor")
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  familyId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  userAgent  String?
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// OTPs are never stored raw: only an HMAC of (challengeId + code).
+model OtpChallenge {
+  id           String     @id @default(uuid())
+  userId       String?
+  purpose      OtpPurpose
+  channel      OtpChannel
+  destination  String     // normalised email / E.164 mobile
+  codeHash     String
+  expiresAt    DateTime
+  attempts     Int        @default(0)
+  maxAttempts  Int        @default(5)
+  consumedAt   DateTime?
+  resetUsedAt  DateTime?
+  resendAfter  DateTime
+  createdAt    DateTime   @default(now())
+  user         User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([destination, purpose, createdAt])
+  @@index([userId])
+}
+
+model DisclosureVersion {
+  id            String   @id @default(uuid())
+  kind          String   // TERMS | PRIVACY | RISK | DISTRIBUTOR
+  version       String
+  locale        String
+  title         String
+  body          String
+  effectiveFrom DateTime
+  reviewedBy    String?  // human reviewer for legal text
+  createdAt     DateTime @default(now())
+
+  consents ConsentRecord[]
+
+  @@unique([kind, version, locale])
+}
+
+model ConsentRecord {
+  id            String   @id @default(uuid())
+  userId        String
+  disclosureId  String
+  accepted      Boolean
+  locale        String
+  ipHash        String?
+  userAgent     String?
+  createdAt     DateTime @default(now())
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  disclosure    DisclosureVersion @relation(fields: [disclosureId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ProviderConfig {
+  key              String    @id // cybrilla | zeptomail | interakt | mtalkz | kyc | push
+  enabled          Boolean   @default(false)
+  environment      String    @default("sandbox")
+  credentialRef    String?   // name of secret in secret manager, never the secret
+  healthStatus     String    @default("UNKNOWN")
+  lastSuccessAt    DateTime?
+  updatedAt        DateTime  @updatedAt
+}
+
+model AdminAuditEvent {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}
