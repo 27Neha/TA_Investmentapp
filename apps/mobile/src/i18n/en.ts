@@ -1,0 +1,28 @@
+const en = {
+  'common.continue': 'Continue', 'common.back': 'Back', 'common.loading': 'Please wait…', 'common.retry': 'Try again',
+  'common.error.network': 'Could not reach TechArtha. Check your connection and try again.',
+  'lang.title': 'Choose your language', 'lang.en': 'English', 'lang.hi': 'हिन्दी', 'lang.mr': 'मराठी',
+  'welcome.headline': 'Finance, simplified.', 'welcome.sub': 'Plan goals and explore mutual funds with clarity.',
+  'welcome.login': 'Log in', 'welcome.signup': 'Create account',
+  'signup.title': 'Create your account', 'signup.fullName': 'Full name', 'signup.email': 'Email', 'signup.mobile': 'Mobile number',
+  'signup.dob': 'Date of birth (YYYY-MM-DD)', 'signup.password': 'Password', 'signup.confirm': 'Confirm password',
+  'signup.passwordHint': 'At least 10 characters with upper and lower case, a number and a symbol.',
+  'signup.acceptTerms': 'I have read and accept the Terms of Use', 'signup.acceptPrivacy': 'I have read and accept the Privacy Policy',
+  'signup.legalUnavailable': 'Legal documents are not available yet. Please try again later.',
+  'signup.mismatch': 'Passwords do not match.', 'signup.invalidDob': 'Enter a valid date of birth as YYYY-MM-DD.',
+  'verify.title': 'Verify your email', 'verify.sub': 'Enter the 6-digit code we sent to {email}.', 'verify.code': '6-digit code',
+  'verify.resend': 'Resend code', 'verify.done': 'Email verified. Please log in.',
+  'login.title': 'Welcome back', 'login.email': 'Email', 'login.password': 'Password', 'login.submit': 'Log in',
+  'login.forgot': 'Forgot password?', 'login.show': 'Show', 'login.hide': 'Hide',
+  'forgot.title': 'Reset your password', 'forgot.step1': 'Enter your registered email to receive a 6-digit code.',
+  'forgot.send': 'Send code', 'forgot.step2': 'Enter the code we sent to your email.', 'forgot.verify': 'Verify code',
+  'forgot.step3': 'Create a new password.', 'forgot.newPassword': 'New password', 'forgot.reset': 'Update password',
+  'forgot.success': 'Password updated. Please log in.',
+  'tabs.home': 'Home', 'tabs.explore': 'Explore', 'tabs.goals': 'Goals', 'tabs.portfolio': 'Portfolio', 'tabs.profile': 'Profile',
+  'home.greeting': 'Hello, {name}', 'home.empty': 'Your portfolio will appear here once you start investing.',
+  'soon.title': 'Coming soon', 'soon.body': 'This section is being built and is not available yet.',
+  'profile.logout': 'Log out', 'profile.language': 'Language',
+  'disclosure.mf': 'Mutual fund investments are subject to market risks. Read all scheme related documents carefully.',
+};
+export type TranslationKey = keyof typeof en;
+export default en;

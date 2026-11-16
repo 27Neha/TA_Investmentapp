@@ -2,6 +2,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 import { DEFAULT_FLAGS } from '../src/flags/flags.service';
+import { hashPassword, validatePasswordStrength } from '../src/common/password';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 async function main() {
@@ -20,4 +21,15 @@ async function main() {
     await prisma.featureFlag.upsert({ where: { key }, update: {}, create: { key, description, enabled: false } });
   }
 }
-main().finally(() => prisma.$disconnect());
+async function seedAdmin() {
+  const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const pw = process.env.ADMIN_PASSWORD;
+  if (!email || !pw) return console.log('ADMIN_EMAIL/ADMIN_PASSWORD not set — skipping admin bootstrap');
+  if (!validatePasswordStrength(pw)) throw new Error('ADMIN_PASSWORD fails the password policy');
+  await prisma.user.upsert({
+    where: { email }, update: {},
+    create: { email, fullName: 'TechArtha Admin', passwordHash: await hashPassword(pw), role: 'ADMIN', emailVerifiedAt: new Date(), locale: 'en' },
+  });
+  console.log(`Admin ready: ${email} (change the password after first login)`);
+}
+main().then(seedAdmin).finally(() => prisma.$disconnect());
