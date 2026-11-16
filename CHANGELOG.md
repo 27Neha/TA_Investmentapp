@@ -27,3 +27,6 @@
 
 ## Milestone 3
 - Goals with illustrative calculator, fund search/NAV via market-data boundary, ArthaVerse content, Home aggregate and honest Portfolio empty state (API + mobile screens), with tests.
+
+## Milestone 4 (boundary only; provider integration blocked)
+- Fail-closed `TransactionProvider` boundary, `/v1/me/investing/status`, tests, and blocker documentation. No Cybrilla call implemented.

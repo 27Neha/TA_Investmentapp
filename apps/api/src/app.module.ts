@@ -7,6 +7,7 @@ import { ConsentController } from './consent/consent.controller';
 import { FlagsModule } from './flags/flags.module';
 import { HealthController } from './health/health.controller';
 import { GoalsModule } from './goals/goals.module';
+import { InvestingModule } from './investing/investing.module';
 import { MarketModule } from './market/market.module';
 import { MeModule } from './me/me.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -28,6 +29,7 @@ class ConfigModule {}
     MeModule,
     GoalsModule,
     MarketModule,
+    InvestingModule,
   ],
   controllers: [HealthController, ConsentController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
