@@ -11,6 +11,7 @@ import { GuardianModule } from './guardian/guardian.module';
 import { SupportModule } from './support/support.module';
 import { KycModule } from './kyc/kyc.module';
 import { InvestingModule } from './investing/investing.module';
+import { AdminViewsModule } from './admin/admin-views.module';
 import { AccountModule } from './account/account.controller';
 import { LearnModule } from './learn/learn.module';
 import { FamilyModule } from './family/family.module';
@@ -46,6 +47,7 @@ class ConfigModule {}
     FamilyModule,
     LearnModule,
     AccountModule,
+    AdminViewsModule,
   ],
   controllers: [HealthController, ConsentController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

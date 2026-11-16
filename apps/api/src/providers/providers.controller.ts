@@ -17,6 +17,9 @@ export class ProvidersController {
       providers: [
         { key: 'email', provider: this.cfg.emailProvider, configured: this.cfg.emailProvider !== 'console', note: 'Verify sender domain + delivery webhooks' },
         { key: 'cybrilla', env: process.env.CYBRILLA_ENV ?? 'sandbox', configured: has('CYBRILLA_CLIENT_ID') && has('CYBRILLA_CLIENT_SECRET') && has('CYBRILLA_TENANT_ID'), webhookSecretSet: has('CYBRILLA_WEBHOOK_SECRET'), note: 'Live investing remains flagged off' },
+        { key: 'kyc', configured: false, note: 'No KYC provider adapter is verified; identity verification stays pending. Adapter, credentials and webhook verification required.' },
+        { key: 'zoho_desk', configured: has('ZOHO_DESK_ORG_ID') && has('ZOHO_DESK_CLIENT_ID') && has('ZOHO_DESK_REFRESH_TOKEN'), note: 'Existing Zoho org (.in). Ticket delivery unverified until a live test; Desk is never a dependency of login or OTP.' },
+        { key: 'support_storage', configured: has('SUPABASE_URL') && has('SUPABASE_SERVICE_ROLE_KEY'), note: 'Private Supabase bucket for ticket attachments; adapter not verified against the real service.' },
         { key: 'interakt', configured: has('INTERAKT_API_KEY') && has('INTERAKT_OTP_TEMPLATE_NAME'), note: 'Needs approved template + webhook' },
         { key: 'mtalkz', configured: has('MTALKZ_API_KEY') },
       ],
