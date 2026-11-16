@@ -6,6 +6,7 @@
 - Deps: conservative audit remediation (express/body-parser/multer/qs/file-type/postcss via overrides; unused `@nestjs/config` removed); 8 findings remain, documented in `docs/DEPENDENCY-AUDIT.md`.
 - M3 (local/disposable DB only): isolation/authorization test suite, read-only Supabase audit script, `docs/DB-SECURITY-AUDIT.md`; fixed concurrent-signup and invite-accept 500s and duplicate open account requests.
 - S1 (security): access tokens carry the session id; the guard re-checks session validity, ACTIVE status and current role per request (indexed lookup, no migration). 9 new tests; the documented gap tests now pass.
+- Platform build (no schema change yet): payment/mandate/SIP state machines, webhook verification helpers, sensitive-data and attachment guards, Zoho Desk adapter behind a fail-closed port (unverified), auth-isolation test; docs: Zoho architecture/setup, full migration proposal, implementation status.
 
 ## Phase 1 — Foundations (in progress)
 - Monorepo, `.env.example`, secret-safe `.gitignore`.
