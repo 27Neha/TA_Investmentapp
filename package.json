@@ -30,5 +30,18 @@
   },
   "engines": {
     "node": ">=22 <23"
+  },
+  "overrides": {
+    "@nestjs/platform-express": {
+      "express": "4.22.3",
+      "body-parser": "1.20.9",
+      "multer": "2.5.0"
+    },
+    "@nestjs/common": {
+      "file-type": "21.3.4"
+    },
+    "next": {
+      "postcss": "8.5.33"
+    }
   }
 }
