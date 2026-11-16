@@ -4,13 +4,22 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import en, { TranslationKey } from './en';
 import hi from './hi';
 import mr from './mr';
+import gu from './gu';
+import pa from './pa';
+import bn from './bn';
+import ta from './ta';
+import te from './te';
+import as from './as';
+import kn from './kn';
+import ml from './ml';
+
 import { LOCALE_REGISTRY } from './locales';
 
-// Extend once the approved ~13-language list is confirmed. Missing keys fall back to English.
+// 11 of 13 languages registered; 2 pending owner confirmation. Missing keys fall back to English.
 export const LOCALES = LOCALE_REGISTRY.map((l) => l.code);
 export type Locale = string;
 export const localeName = (code: string) => LOCALE_REGISTRY.find((l) => l.code === code)?.nativeName ?? code;
-const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr };
+const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr, gu, pa, bn, ta, te, as, kn, ml };
 const KEY = 'ta.locale';
 
 export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string>): string {
