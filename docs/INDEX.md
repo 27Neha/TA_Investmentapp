@@ -1,6 +1,6 @@
 # Documentation index
 
-**Current (maintained):** `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE-MIGRATIONS.md`, `SECURITY-REVIEW.md`, `INTEGRATION-STATUS.md`, `PRODUCT-BUILD-STATUS.md`, `MOBILE-DEVICE-TEST-CHECKLIST.md`, `REPO-HYGIENE.md`, and `../CHANGELOG.md`.
+**Current (maintained):** `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE-MIGRATIONS.md`, `SECURITY-REVIEW.md`, `INTEGRATION-STATUS.md`, `PRODUCT-BUILD-STATUS.md`, `MOBILE-DEVICE-TEST-CHECKLIST.md`, `REPO-HYGIENE.md`, `DEPENDENCY-AUDIT.md`, `DB-SECURITY-AUDIT.md`, and `../CHANGELOG.md`.
 
 **Historical (point-in-time snapshots, kept for the audit trail; may be out of date):**
 | File | Snapshot of |

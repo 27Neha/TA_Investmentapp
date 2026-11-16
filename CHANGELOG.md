@@ -3,6 +3,8 @@
 ## Phase 2 — Engineering hardening (branch feat/phase-2-hardening)
 - M0/M1: Phase 2 branch from ab890fc; README, ARCHITECTURE, DEVELOPMENT, docs index and hygiene review; `.env.example` fix (`MFAPI_BASE`); build cache and editor settings untracked.
 - M2: ESLint 9 + Prettier config (lenient baseline, no mass reformat), Node 22 `.nvmrc`/engines, API local `.env` loading outside production, GitHub Actions CI (disposable PostgreSQL only, separate API/mobile/admin jobs, report-only npm audit). CI not yet run on GitHub.
+- Deps: conservative audit remediation (express/body-parser/multer/qs/file-type/postcss via overrides; unused `@nestjs/config` removed); 8 findings remain, documented in `docs/DEPENDENCY-AUDIT.md`.
+- M3 (local/disposable DB only): isolation/authorization test suite, read-only Supabase audit script, `docs/DB-SECURITY-AUDIT.md`; fixed concurrent-signup and invite-accept 500s and duplicate open account requests.
 
 ## Phase 1 — Foundations (in progress)
 - Monorepo, `.env.example`, secret-safe `.gitignore`.
