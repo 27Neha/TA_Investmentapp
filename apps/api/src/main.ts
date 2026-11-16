@@ -10,7 +10,7 @@ import { loadLocalEnv } from './common/load-env';
 async function bootstrap() {
   loadLocalEnv(); // dev convenience only: skipped in production, never overrides existing env vars
   const cfg = loadConfig(); // fails fast on unsafe production config
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   configureApp(app, cfg);
   await app.listen(cfg.port);
   new Logger('Bootstrap').log(`API listening on :${cfg.port} (${cfg.nodeEnv})`);

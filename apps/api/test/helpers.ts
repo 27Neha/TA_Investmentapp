@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { loadConfig } from '../src/common/config';
+import { INVESTMENT_PROVIDER } from '../src/investing/investment-provider';
 import { EmailService } from '../src/notifications/email.provider';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -25,14 +26,16 @@ export class CapturingEmail {
   }
 }
 
-export async function makeApp(opts: { throttle?: boolean } = {}) {
+export async function makeApp(opts: { throttle?: boolean; provider?: any } = {}) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   process.env.DIRECT_URL = process.env.TEST_DATABASE_URL;
   if (opts.throttle) delete process.env.THROTTLE_DISABLED; else process.env.THROTTLE_DISABLED = 'true';
   process.env.NODE_ENV = 'test';
   const email = new CapturingEmail();
-  const mod = await Test.createTestingModule({ imports: [AppModule] }).overrideProvider(EmailService).useValue(email).compile();
-  const app = mod.createNestApplication<NestExpressApplication>();
+  let b = Test.createTestingModule({ imports: [AppModule] }).overrideProvider(EmailService).useValue(email);
+  if (opts.provider) b = b.overrideProvider(INVESTMENT_PROVIDER).useValue(opts.provider);
+  const mod = await b.compile();
+  const app = mod.createNestApplication<NestExpressApplication>({ rawBody: true });
   configureApp(app, loadConfig());
   await app.init();
   return { app: app as INestApplication, email, prisma: app.get(PrismaService) };

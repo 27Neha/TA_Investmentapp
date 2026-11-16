@@ -21,7 +21,7 @@ const RISK = { horizon: '3to7', reaction: 'hold', income: 'stable', experience: 
 const PUBLIC_ROUTES = [
   'GET /health', 'GET /health/ready',
   'GET /v1/content', 'GET /v1/content/:slug', 'GET /v1/disclosures', 'GET /v1/disclosures/latest',
-  'POST /v1/auth/signup', 'POST /v1/auth/verify-email', 'POST /v1/auth/resend-verification', 'POST /v1/auth/login',
+  'POST /v1/webhooks/investment' /* provider-signed: raw-body signature verified, 404 until a provider is connected */, 'POST /v1/auth/signup', 'POST /v1/auth/verify-email', 'POST /v1/auth/resend-verification', 'POST /v1/auth/login',
   'POST /v1/auth/refresh', 'POST /v1/auth/logout',
   'POST /v1/auth/forgot-password', 'POST /v1/auth/forgot-password/verify', 'POST /v1/auth/forgot-password/reset',
 ].sort();
