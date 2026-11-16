@@ -34,7 +34,7 @@ d('Migration matches schema.prisma', () => {
   beforeAll(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL; prisma = new PrismaService(); });
   afterAll(async () => { await prisma.$disconnect(); });
 
-  it('parsed a sensible number of models and enums', () => { expect(models.length).toBe(47); expect(enums.length).toBe(8); });
+  it('parsed a sensible number of models and enums', () => { expect(models.length).toBe(50); expect(enums.length).toBe(8); });
 
   it('RLS is enabled (deny-by-default) on every application table', async () => {
     const rows: any[] = await prisma.$queryRawUnsafe(`SELECT c.relname::text AS t FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname<>'_prisma_migrations'`);
@@ -85,7 +85,7 @@ d('Migration matches schema.prisma', () => {
         expect({ name, rule: map.get(name) }).toEqual({ name, rule: code[del] }); checked++;
       }
     }
-    expect(checked).toBe(52);
+    expect(checked).toBe(56);
   });
 
   it('enums in the database match the schema, in order', async () => {

@@ -109,6 +109,25 @@ d('platform migration: constraints, triggers and plans', () => {
     expect((await prisma.supportTicket.findUnique({ where: { id: t.id } }))?.userId).toBeNull();
   });
 
+  it('KYC: VERIFIED needs provider evidence, one open attempt per kind, terminal + append-only guards, no Aadhaar columns', async () => {
+    const u = await user();
+    const c = await prisma.kycConsent.create({ data: { userId: u, purpose: 'PAN_VERIFICATION', consentVersion: 'v' } });
+    const base = { userId: u, consentId: c.id, kind: 'PAN', provider: 'kyc' };
+    await rejects(prisma.kycVerificationAttempt.create({ data: { ...base, idempotencyKey: 'a', status: 'VERIFIED' } }), /verified_chk|constraint/i);
+    await rejects(prisma.kycVerificationAttempt.create({ data: { ...base, idempotencyKey: 'b', status: 'PENDING' } }), /openkey_chk|constraint/i); // open needs a key
+    await rejects(prisma.kycVerificationAttempt.create({ data: { ...base, idempotencyKey: 'c', kind: 'VOTER_ID', openKey: 'x' } }), /kind_chk|constraint/i);
+    const a = await prisma.kycVerificationAttempt.create({ data: { ...base, idempotencyKey: 'd', openKey: `${u}:PAN` } });
+    await rejects(prisma.kycVerificationAttempt.create({ data: { ...base, idempotencyKey: 'e', openKey: `${u}:PAN` } }), /unique/i); // second open PAN attempt
+    await prisma.kycVerificationAttempt.update({ where: { id: a.id }, data: { status: 'VERIFIED', openKey: null, providerRef: 'R1', providerConfirmedAt: new Date() } });
+    await rejects(sql(`UPDATE "KycVerificationAttempt" SET "status"='REJECTED' WHERE id=$1`, a.id), /terminal status/);
+    const ev = await prisma.kycAttemptEvent.create({ data: { attemptId: a.id, toStatus: 'VERIFIED', eventType: 'X', source: 'PROVIDER_VERIFIED' } });
+    await rejects(sql(`DELETE FROM "KycAttemptEvent" WHERE id=$1`, ev.id), /append-only/);
+    await rejects(prisma.kycAttemptEvent.create({ data: { attemptId: a.id, toStatus: 'VERIFIED', eventType: 'X', source: 'USER' } }), /source_chk|constraint/i);
+    const cols = (await prisma.$queryRawUnsafe<any[]>(`SELECT column_name FROM information_schema.columns WHERE table_name IN ('KycConsent','KycVerificationAttempt','KycAttemptEvent')`)).map((r) => r.column_name.toLowerCase());
+    expect(cols.filter((x) => /aadhaar|aadhar|otp|password|secret/.test(x))).toEqual([]); // nothing to store an Aadhaar number or OTP in
+    await rejects(sql(`DELETE FROM "User" WHERE id=$1`, u), /foreign key|violates/i); // consent/verification evidence cannot be cascaded away
+  });
+
   it('hot-path queries use indexes (EXPLAIN on realistic volume)', async () => {
     const u = await user(); const o = await order(u);
     await sql(`INSERT INTO "ProviderWebhookEvent"(id,provider,"eventId","eventType","signatureValid","payloadHash","processedAt") SELECT gen_random_uuid()::text,'cybrilla','e'||g,'t',true,'h',CASE WHEN g%100=0 THEN NULL ELSE now() END FROM generate_series(1,20000) g`);

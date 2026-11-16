@@ -83,6 +83,8 @@ model User {
   guardianOfLinks     GuardianLinkage[] @relation("GuardianGuardian")
   guardianRevocations GuardianLinkage[] @relation("GuardianRevoker")
   guardianAuditEvents GuardianAuditEvent[]
+  kycConsents KycConsent[]
+  kycAttempts KycVerificationAttempt[]
   supportTickets      SupportTicket[] @relation("TicketOwner")
   supportTicketsAbout SupportTicket[] @relation("TicketMinor")
   orders              InvestmentOrder[]
@@ -226,6 +228,8 @@ enum KycStatus {
   PENDING_PROVIDER // details captured locally; NOT verified. Only a verified provider callback may set VERIFIED.
   VERIFIED
   REJECTED
+  MANUAL_REVIEW // appended last: PostgreSQL enum values can only be appended. Provider verified a document but details differ.
+  EXPIRED
 }
 
 enum BankStatus {
@@ -834,4 +838,67 @@ model SipPlan {
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([mandateId])
+}
+
+// ===================== KYC verification (migration 20261120000000_kyc_verification) =====================
+/// Explicit, purpose-specific consent recorded BEFORE any identity retrieval or verification. Revoking never deletes the row.
+model KycConsent {
+  id             String   @id @default(uuid())
+  userId         String
+  purpose        String
+  consentVersion String
+  grantedAt      DateTime @default(now())
+  revokedAt      DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  attempts       KycVerificationAttempt[]
+
+  @@index([userId, purpose])
+}
+
+/// One verification attempt. Statuses are TEXT guarded by CHECKs. VERIFIED requires providerRef + providerConfirmedAt.
+/// Only a masked identifier is stored; Aadhaar numbers, OTPs and credentials have no column.
+model KycVerificationAttempt {
+  id                  String    @id @default(uuid())
+  userId              String
+  consentId           String
+  kind                String
+  status              String    @default("PENDING")
+  provider            String
+  providerRef         String?
+  maskedIdentifier    String?
+  mismatchFlags       String[]  @default([])
+  failureCode         String?
+  failureReason       String?
+  providerConfirmedAt DateTime?
+  completedAt         DateTime?
+  expiresAt           DateTime?
+  idempotencyKey      String
+  openKey             String?   @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  consent             KycConsent @relation(fields: [consentId], references: [id], onDelete: Restrict)
+  events              KycAttemptEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@unique([provider, providerRef])
+  @@index([userId, kind, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Append-only history (trigger-enforced).
+model KycAttemptEvent {
+  id             String   @id @default(uuid())
+  attemptId      String
+  fromStatus     String?
+  toStatus       String
+  eventType      String
+  source         String
+  actorId        String?
+  webhookEventId String?
+  reason         String?
+  createdAt      DateTime @default(now())
+  attempt        KycVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt])
 }

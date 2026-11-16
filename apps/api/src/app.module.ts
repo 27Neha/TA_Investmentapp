@@ -7,6 +7,7 @@ import { ConsentController } from './consent/consent.controller';
 import { FlagsModule } from './flags/flags.module';
 import { HealthController } from './health/health.controller';
 import { GoalsModule } from './goals/goals.module';
+import { KycModule } from './kyc/kyc.module';
 import { InvestingModule } from './investing/investing.module';
 import { AccountModule } from './account/account.controller';
 import { LearnModule } from './learn/learn.module';
@@ -35,6 +36,7 @@ class ConfigModule {}
     GoalsModule,
     MarketModule,
     InvestingModule,
+    KycModule,
     InboxModule,
     RiskModule,
     FamilyModule,

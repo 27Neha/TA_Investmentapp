@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/bootstrap';
 import { loadConfig } from '../src/common/config';
+import { KYC_PROVIDER } from '../src/integrations/kyc/kyc.port';
 import { INVESTMENT_PROVIDER } from '../src/investing/investment-provider';
 import { EmailService } from '../src/notifications/email.provider';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -26,7 +27,7 @@ export class CapturingEmail {
   }
 }
 
-export async function makeApp(opts: { throttle?: boolean; provider?: any } = {}) {
+export async function makeApp(opts: { throttle?: boolean; provider?: any; kycProvider?: any } = {}) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   process.env.DIRECT_URL = process.env.TEST_DATABASE_URL;
   if (opts.throttle) delete process.env.THROTTLE_DISABLED; else process.env.THROTTLE_DISABLED = 'true';
@@ -34,6 +35,7 @@ export async function makeApp(opts: { throttle?: boolean; provider?: any } = {})
   const email = new CapturingEmail();
   let b = Test.createTestingModule({ imports: [AppModule] }).overrideProvider(EmailService).useValue(email);
   if (opts.provider) b = b.overrideProvider(INVESTMENT_PROVIDER).useValue(opts.provider);
+  if (opts.kycProvider) b = b.overrideProvider(KYC_PROVIDER).useValue(opts.kycProvider);
   const mod = await b.compile();
   const app = mod.createNestApplication<NestExpressApplication>({ rawBody: true });
   configureApp(app, loadConfig());
@@ -42,7 +44,7 @@ export async function makeApp(opts: { throttle?: boolean; provider?: any } = {})
 }
 
 export async function resetDb(prisma: PrismaService) {
-  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","InvestorProfile","Address","BankAccount","Nominee","KycRecord","RiskAssessment","NotificationPreference","GuardianLink","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","OutboxJob","ProviderWebhookEvent","User" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","InvestorProfile","Address","BankAccount","Nominee","KycRecord","RiskAssessment","NotificationPreference","GuardianLink","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","OutboxJob","ProviderWebhookEvent","KycAttemptEvent","KycVerificationAttempt","KycConsent","User" CASCADE');
   for (const kind of ['TERMS', 'PRIVACY']) {
     await prisma.disclosureVersion.create({ data: { kind, version: 'it-1', locale: 'en', title: kind, body: 'test', effectiveFrom: new Date(Date.now() - 1000) } });
   }

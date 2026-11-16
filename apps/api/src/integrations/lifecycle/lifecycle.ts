@@ -8,7 +8,7 @@
  *  - Terminal states never change. A repeated identical event is an idempotent no-op; a conflicting terminal event is
  *    reported as a conflict (for reconciliation) and is NOT applied.
  */
-export type EventSource = 'CLIENT' | 'SYSTEM' | 'PROVIDER_VERIFIED';
+export type EventSource = 'CLIENT' | 'SYSTEM' | 'PROVIDER_VERIFIED' | 'ADMIN';
 
 export interface LifecycleEvent<E extends string> {
   type: E;

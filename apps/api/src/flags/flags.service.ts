@@ -9,6 +9,7 @@ export const DEFAULT_FLAGS: Record<string, string> = {
   'minor.accounts': 'Minor / guardian investing',
   'risk.personalised_buckets': 'Assessment-based bucket display (compliance review required)',
   'assistant.llm': 'AI assistant answers beyond approved help content',
+  'kyc.admin_approval': 'Reviewer may approve a flagged name/DOB mismatch on top of a provider-verified document (compliance decision required)',
   'support.whatsapp_inbox': 'WhatsApp two-way inbox (needs verified webhook)',
 };
 
