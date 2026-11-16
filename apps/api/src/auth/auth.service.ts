@@ -1,3 +1,4 @@
+import { isUniqueViolation } from '../common/prisma-errors';
 import {
   BadRequestException,
   ConflictException,
@@ -72,6 +73,7 @@ export class AuthService {
     });
     if (existing) throw new ConflictException('An account with these details may already exist. Try logging in.');
 
+    // A simultaneous duplicate signup can pass the check above; the unique index then rejects it. Treat that exactly like the sequential case.
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -91,6 +93,9 @@ export class AuthService {
           })),
         },
       },
+    }).catch((e) => {
+      if (isUniqueViolation(e)) throw new ConflictException('An account with these details may already exist. Try logging in.');
+      throw e;
     });
     // Account + consent are already committed. If delivery fails the user recovers via "Resend code" — never a dead end.
     const emailSent = await this.sendEmailOtp(user, OtpPurpose.EMAIL_VERIFY, 'Verify your TechArtha email').then(() => true, () => false);
