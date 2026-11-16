@@ -15,7 +15,7 @@ import ml from './ml';
 import or from './or';
 import ur from './ur';
 
-import { LOCALE_REGISTRY } from './locales';
+import { LEGAL_KEY_PREFIXES, LOCALE_REGISTRY } from './locales';
 
 // 11 of 13 languages registered; 2 pending owner confirmation. Missing keys fall back to English.
 export const LOCALES = LOCALE_REGISTRY.map((l) => l.code);
@@ -25,7 +25,10 @@ const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, 
 const KEY = 'ta.locale';
 
 export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string>): string {
-  let s = catalogs[locale]?.[key] ?? en[key] ?? key; // missing key -> English -> key itself (never blank)
+  // Legal / consent / financial / risk text is shown in English unless the locale's legal text has been human-reviewed, even if a draft translation exists.
+  const meta = LOCALE_REGISTRY.find((l) => l.code === locale);
+  const englishOnly = !meta?.legalReviewed && LEGAL_KEY_PREFIXES.some((p) => key.startsWith(p));
+  let s = (englishOnly ? undefined : catalogs[locale]?.[key]) ?? en[key] ?? key; // missing key -> English -> key itself (never blank)
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.split(`{${k}}`).join(v);
   return s;
 }

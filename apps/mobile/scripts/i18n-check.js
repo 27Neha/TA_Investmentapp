@@ -19,7 +19,10 @@ for (const { code, legalReviewed } of registry) {
   console.log(`${code}: translated ${enKeys.length - missing.length}/${enKeys.length}  missing ${missing.length}  unknown ${unknown.length}  placeholder-mismatch ${badVars.length}  legal-reviewed ${legalReviewed}`);
   if (unknown.length) { console.log('  UNKNOWN KEYS:', unknown.join(', ')); errors++; }
   if (badVars.length) { console.log('  PLACEHOLDER MISMATCH:', badVars.join(', ')); errors++; }
-  if (legalMissing.length) console.log('  LEGAL TEXT STILL ENGLISH (needs human translation):', legalMissing.join(', '));
-  if (missing.length) console.log('  missing (fall back to English):', missing.join(', '));
+  // Hard rule: legal/consent/financial/risk keys must not be translated until a human reviewer signs the locale off.
+  const legalTranslated = Object.keys(c).filter((k) => legalPrefixes.some((p) => k.startsWith(p)));
+  if (legalTranslated.length && !legalReviewed) { console.log('  LEGAL KEYS TRANSLATED WITHOUT HUMAN REVIEW:', legalTranslated.join(', ')); errors++; }
+  console.log(`  legal/consent/financial/risk keys kept in English: ${legalMissing.length}; other keys falling back to English: ${missing.length - legalMissing.length}`);
+  if (process.argv.includes('--verbose')) console.log('  missing:', missing.join(', '));
 }
 process.exit(errors ? 1 : 0);
