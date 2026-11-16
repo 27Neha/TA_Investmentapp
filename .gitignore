@@ -22,3 +22,4 @@ service-account*.json
 .vscode/
 # repository transfer bundles
 *.bundle
+apps/mobile/.claude/
