@@ -24,6 +24,7 @@ import { PortfolioScreen, TransactionsScreen, WithdrawalScreen } from '../screen
 import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
 import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
 import { KycScreen } from '../screens/kyc/KycScreens';
+import { InvestScreen, MandatesScreen, PaymentDetailScreen, PaymentsScreen } from '../screens/invest/InvestScreens';
 import { colors } from '../theme/tokens';
 
 const AuthStack = createNativeStackNavigator();
@@ -52,6 +53,10 @@ export default function RootNavigator() {
     <AppStack.Navigator screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
       <AppStack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <AppStack.Screen name="Support" component={SupportScreen} />
+      <AppStack.Screen name="Invest" component={InvestScreen} />
+      <AppStack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
+      <AppStack.Screen name="Payments" component={PaymentsScreen} />
+      <AppStack.Screen name="Mandates" component={MandatesScreen} />
       <AppStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AppStack.Screen name="ObPersonal" component={PersonalScreen} />
       <AppStack.Screen name="ObGuardian" component={GuardianScreen} />

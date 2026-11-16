@@ -22,7 +22,7 @@ export function ProfileScreen() {
   React.useEffect(() => nav.addListener('focus', () => { me.reload(); pending.reload(); }), [nav, me.reload, pending.reload]);
   const groups: { title: TranslationKey; rows: [TranslationKey, string, string?][] }[] = [
     { title: 'pg.account', rows: [['prof.personal', 'ObPersonal'], ['ob.step.address', 'ObAddress'], ['ob.step.bank', 'ObBank'], ['ob.step.nominee', 'ObNominee'], ['prof.kyc', 'Kyc']] },
-    { title: 'pg.investment', rows: [['ob.step.risk', 'RiskHub'], ['risk.history', 'RiskHistory'], ['family.title', 'FamilyHub'], ['watch.title', 'Watchlist'], ['tx.title', 'Transactions'], ['wd.title', 'Withdrawal']] },
+    { title: 'pg.investment', rows: [['ob.step.risk', 'RiskHub'], ['mandate.title', 'Mandates'], ['pay.list', 'Payments'], ['risk.history', 'RiskHistory'], ['family.title', 'FamilyHub'], ['watch.title', 'Watchlist'], ['tx.title', 'Transactions'], ['wd.title', 'Withdrawal']] },
     { title: 'pg.prefs', rows: [['prof.language', 'Language'], ['prof.notifications', 'Notifications'], ['inbox.title', 'Inbox']] },
     { title: 'pg.security', rows: [['prof.security', 'Security'], ['prof.password', 'ChangePassword'], ['acct.title', 'AccountRequest']] },
     { title: 'pg.help', rows: [['profile.support', 'Support'], ['faq.title', 'Faq']] },

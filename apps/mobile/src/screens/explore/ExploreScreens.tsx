@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n';
 import { TranslationKey } from '../../i18n/en';
 import { colors, MIN_TOUCH, radii, spacing, type } from '../../theme/tokens';
 import { GamesPanel } from '../learn/LearnScreens';
+import { InvestEntry } from '../invest/InvestScreens';
 
 type Tab = 'market' | 'funds' | 'categories' | 'learn' | 'games';
 const RANGES = ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'MAX'];
@@ -235,6 +236,7 @@ export function SchemeScreen() {
           <Notice text={s.data.unverifiedFields} />
           {err ? <Notice tone="error" text={err} /> : null}
           <Button variant={watched ? 'secondary' : 'primary'} label={watched ? t('watch.remove') : t('watch.add')} disabled={watched === null} onPress={toggleWatch} />
+          <InvestEntry schemeCode={code} schemeName={sc.schemeName} />
           <Button variant="secondary" label={t('compare.addAnother')} onPress={() => nav.navigate('MainTabs', { screen: 'Explore' })} />
           <Small>{s.data.disclosure}</Small>
         </>) : null}
