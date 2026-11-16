@@ -22,9 +22,15 @@ export class AccountService {
   async request(userId: string, d: RequestDto) {
     const u = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!u || !(await verifyPassword(u.passwordHash, d.password))) throw new BadRequestException({ message: 'Your password is incorrect.', code: 'WRONG_PASSWORD' });
-    const open = await this.prisma.accountRequest.findFirst({ where: { userId, status: 'REQUESTED' } });
+    // Serialise per user so simultaneous taps cannot create two open requests (no schema change needed; the lock is released at commit).
+    const { r, open } = await this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${'account-request:' + userId}))`;
+      const existing = await tx.accountRequest.findFirst({ where: { userId, status: 'REQUESTED' } });
+      if (existing) return { r: null, open: existing };
+      return { r: await tx.accountRequest.create({ data: { userId, kind: d.kind, reason: d.reason?.trim() || null } }), open: null };
+    });
     if (open) return this.view(open, true);
-    const r = await this.prisma.accountRequest.create({ data: { userId, kind: d.kind, reason: d.reason?.trim() || null } });
+    if (!r) throw new BadRequestException('Could not record the request.');
     await this.audit.record(userId, `ACCOUNT_${d.kind}_REQUESTED`, 'AccountRequest', r.id);
     await this.inbox.notify(userId, 'ACCOUNT', 'Account request received', 'We received your request. Your account stays active until the request is reviewed, and you can cancel it from Settings.');
     return this.view(r, false);
