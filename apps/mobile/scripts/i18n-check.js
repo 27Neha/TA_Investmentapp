@@ -1,7 +1,7 @@
 /* Translation coverage + integrity report. Usage: node scripts/i18n-check.js  (exit 1 on integrity errors; missing keys are reported, not fatal: they fall back to English) */
 const fs = require('fs'); const path = require('path');
 const dir = path.join(__dirname, '../src/i18n');
-const keysOf = (f) => { const m = {}; for (const x of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/'([a-z]+(?:\.[A-Za-z0-9]+)+)':\s*'((?:[^'\\]|\\.)*)'/g)) m[x[1]] = x[2]; return m; };
+const keysOf = (f) => { const m = {}; for (const x of fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/'([a-z]+(?:\.[A-Za-z0-9_]+)+)':\s*'((?:[^'\\]|\\.)*)'/g)) m[x[1]] = x[2]; return m; };
 const registry = [...fs.readFileSync(path.join(dir, 'locales.ts'), 'utf8').matchAll(/code: '(\w+)'.*?legalReviewed: (true|false)/g)].map((m) => ({ code: m[1], legalReviewed: m[2] === 'true' }));
 const legalPrefixes = [...fs.readFileSync(path.join(dir, 'locales.ts'), 'utf8').match(/LEGAL_KEY_PREFIXES = \[([^\]]+)\]/)[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
 const en = keysOf('en.ts'); const enKeys = Object.keys(en);

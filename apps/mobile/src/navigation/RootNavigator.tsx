@@ -16,7 +16,8 @@ import { ChallengeScreen, QuizScreen } from '../screens/learn/LearnScreens';
 import { InboxScreen } from '../screens/inbox/InboxScreen';
 import { FamilyHubScreen, FamilyMemberScreen } from '../screens/family/FamilyScreens';
 import { AccountRequestScreen, ConsentHistoryScreen, FaqScreen, LegalDocScreen, LegalScreen } from '../screens/legal/LegalScreens';
-import { RiskAssessScreen, RiskHistoryScreen, RiskHubScreen, RiskResultScreen } from '../screens/risk/RiskScreens';
+import { RiskLegacyAssessScreen, RiskLegacyHistoryScreen, RiskLegacyHubScreen, RiskLegacyResultScreen } from '../screens/risk/RiskScreens';
+import { RiskAssessScreen, RiskHistoryScreen, RiskHubScreen, RiskResultScreen } from '../screens/risk/RiskV1Screens';
 import { GoalCompareScreen, GoalDetailScreen, GoalFormScreen, GoalsScreen } from '../screens/goals/GoalsScreens';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { PortfolioScreen, TransactionsScreen, WithdrawalScreen } from '../screens/portfolio/PortfolioScreen';
@@ -79,6 +80,10 @@ export default function RootNavigator() {
       <AppStack.Screen name="RiskAssess" component={RiskAssessScreen} />
       <AppStack.Screen name="RiskResult" component={RiskResultScreen} />
       <AppStack.Screen name="RiskHistory" component={RiskHistoryScreen} />
+      <AppStack.Screen name="RiskLegacyHub" component={RiskLegacyHubScreen} />
+      <AppStack.Screen name="RiskLegacyAssess" component={RiskLegacyAssessScreen} />
+      <AppStack.Screen name="RiskLegacyResult" component={RiskLegacyResultScreen} />
+      <AppStack.Screen name="RiskLegacyHistory" component={RiskLegacyHistoryScreen} />
       <AppStack.Screen name="Transactions" component={TransactionsScreen} />
       <AppStack.Screen name="Withdrawal" component={WithdrawalScreen} />
       <AppStack.Screen name="FamilyHub" component={FamilyHubScreen} />

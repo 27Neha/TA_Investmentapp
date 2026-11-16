@@ -12,7 +12,7 @@ import { go } from '../../navigation/go';
 import { colors, spacing } from '../../theme/tokens';
 
 /** Risk hub: status, reassess, history, compare. The questionnaire is a DRAFT framework; the result is an investor profile, not a scheme Riskometer. */
-export function RiskHubScreen() {
+export function RiskLegacyHubScreen() {
   const { t } = useI18n();
   const nav = useNavigation<any>();
   const s = useLoad(() => api<any>('/v1/me/risk/status', { auth: true }));
@@ -35,15 +35,15 @@ export function RiskHubScreen() {
           ) : <Card><Body>{t('risk.notDone')}</Body></Card>}
           <Small>{t('risk.notRiskometer')}</Small>
           {d.draftAnswered > 0 ? <Notice text={t('risk.draftSaved', { n: String(d.draftAnswered) })} /> : null}
-          <Button label={d.draftAnswered > 0 ? t('risk.resume') : d.completed ? t('risk.reassess') : t('risk.start')} onPress={() => nav.navigate('RiskAssess')} />
-          {d.completed ? <Button variant="secondary" label={t('risk.history')} onPress={() => nav.navigate('RiskHistory')} /> : null}
+          <Button label={d.draftAnswered > 0 ? t('risk.resume') : d.completed ? t('risk.reassess') : t('risk.start')} onPress={() => nav.navigate('RiskLegacyAssess')} />
+          {d.completed ? <Button variant="secondary" label={t('risk.history')} onPress={() => nav.navigate('RiskLegacyHistory')} /> : null}
         </>) : null}
       </LoadGate>
     </Screen>
   );
 }
 
-export function RiskAssessScreen() {
+export function RiskLegacyAssessScreen() {
   const { t } = useI18n();
   const nav = useNavigation<any>();
   const msg = useErrMsg();
@@ -63,7 +63,7 @@ export function RiskAssessScreen() {
     setShow(true);
     if (answered < qs.length) return;
     setBusy(true); setErr(null);
-    try { const r = await api<any>('/v1/me/risk/submit', { body: { answers: ans }, auth: true }); nav.replace('RiskResult', { result: r }); } catch (e) { setErr(msg(e)); } finally { setBusy(false); }
+    try { const r = await api<any>('/v1/me/risk/submit', { body: { answers: ans }, auth: true }); nav.replace('RiskLegacyResult', { result: r }); } catch (e) { setErr(msg(e)); } finally { setBusy(false); }
   };
   return (
     <Screen>
@@ -87,7 +87,7 @@ export function RiskAssessScreen() {
   );
 }
 
-export function RiskResultScreen() {
+export function RiskLegacyResultScreen() {
   const { t } = useI18n();
   const nav = useNavigation<any>();
   const { result } = (useRoute().params ?? {}) as { result: any };
@@ -112,12 +112,12 @@ export function RiskResultScreen() {
         </Card>
       ) : null}
       <Small>{t('risk.notRiskometer')}</Small>
-      <Button label={t('common.continue')} onPress={() => nav.navigate('RiskHub')} />
+      <Button label={t('common.continue')} onPress={() => nav.navigate('RiskLegacyHub')} />
     </Screen>
   );
 }
 
-export function RiskHistoryScreen() {
+export function RiskLegacyHistoryScreen() {
   const { t } = useI18n();
   const h = useLoad(() => api<any[]>('/v1/me/risk/history', { auth: true }));
   const c = useLoad(() => api<any>('/v1/me/risk/compare', { auth: true }));
