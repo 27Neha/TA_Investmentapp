@@ -257,3 +257,7 @@ All objects are new, so the down-migration is `DROP TRIGGER/FUNCTION`, then `DRO
 2. Support attachments: store bytes in Supabase Storage, or keep them only in Zoho Desk (metadata only here)?
 3. Retention periods per §8 (with your adviser).
 4. Compliance sign-off needed before any guardian/minor `TRANSACT` capability or minor investing is enabled.
+
+## Implementation note (added after approval)
+Generated as `apps/api/prisma/migrations/20261119000000_platform_core/migration.sql` with a manual rollback in `apps/api/prisma/rollback/`. **Applied only to disposable local PostgreSQL** (fresh DB with all 6 migrations: 33 → 47 tables; rollback returns exactly to 33; re-apply works). **Not applied to Supabase; that needs your separate approval after you review this SQL and confirm backup/PITR.**
+Deviations from the proposal text, made to keep the CI Prisma drift gate valid: (1) partial unique indexes became nullable UNIQUE key columns (`activeKey`, `liveKey`, `openKey`) kept consistent by CHECK constraints, same invariants; (2) partial/DESC non-unique indexes became plain composite indexes; (3) added `SupportTicket.clientRequestId` (unique per user) so retried ticket creation cannot duplicate; (4) added `SupportAttachment.status`; (5) terminal-status guard triggers on Payment, Mandate, SipPlan and GuardianLinkage. The Prisma schema engine (`db:drift`) cannot run in this sandbox; the existing engine-less schema/migration test (now 47 models, 52 foreign keys) passes, and the CI drift job remains the final check.
