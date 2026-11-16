@@ -338,20 +338,3 @@ export function ReviewScreen() {
 }
 
 // ---------------- KYC status ----------------
-export function KycScreen() {
-  const { t } = useI18n();
-  const k = useLoad(() => api<any>('/v1/me/kyc', authed));
-  const b = useLoad(() => api<any>('/v1/me/bank', authed));
-  return (
-    <Screen>
-      <Title>{t('kyc.title')}</Title>
-      <LoadGate loading={k.loading || b.loading} error={k.error || b.error} onRetry={() => { k.reload(); b.reload(); }}>
-        {k.data ? (<>
-          <Row label={t('kyc.title')} value={t(`kyc.status.${k.data.status}` as TranslationKey)} />
-          {b.data ? <Row label={t('ob.step.bank')} value={t('bank.status.UNVERIFIED')} /> : null}
-          {k.data.status !== 'VERIFIED' ? <Notice text={t('kyc.providerNote')} /> : null}
-        </>) : null}
-      </LoadGate>
-    </Screen>
-  );
-}

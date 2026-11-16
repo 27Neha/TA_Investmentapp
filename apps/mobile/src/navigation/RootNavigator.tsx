@@ -21,8 +21,9 @@ import { RiskAssessScreen, RiskHistoryScreen, RiskHubScreen, RiskResultScreen } 
 import { GoalCompareScreen, GoalDetailScreen, GoalFormScreen, GoalsScreen } from '../screens/goals/GoalsScreens';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { PortfolioScreen, TransactionsScreen, WithdrawalScreen } from '../screens/portfolio/PortfolioScreen';
-import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, KycScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
+import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
 import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
+import { KycScreen } from '../screens/kyc/KycScreens';
 import { colors } from '../theme/tokens';
 
 const AuthStack = createNativeStackNavigator();
