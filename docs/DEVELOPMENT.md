@@ -26,7 +26,7 @@ Get-Content .env | Where-Object { $_ -match '^\s*[^#=\s]+=' } | ForEach-Object {
 | `EMAIL_PROVIDER` | `console` (prints OTPs to the log) | must be `zeptomail`; `console` is refused |
 | `ZEPTOMAIL_SEND_MAIL_TOKEN` | — | required when `EMAIL_PROVIDER=zeptomail` |
 | `THROTTLE_DISABLED`, `AUTH_DEV_BYPASS` | tests only | startup fails if `true` |
-| `MFAPI_BASE_URL` | public default | public default |
+| `MFAPI_BASE` (also `MARKET_TIMEOUT_MS`, `MARKET_MIN_SPACING_MS`) | public default | public default |
 | `CORS_ORIGIN` | dev origins | the real app/admin origins |
 | `EXPO_PUBLIC_API_URL` | API address reachable from the device | public API URL (never a secret) |
 | `API_INTERNAL_URL` | admin → API | server-side only |
