@@ -11,7 +11,9 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
-import { ExploreScreen, GoalsScreen, HomeScreen, PortfolioScreen, ProfileScreen } from '../screens/main/MainScreens';
+import { ExploreScreen, GoalsScreen, HomeScreen, PortfolioScreen } from '../screens/main/MainScreens';
+import { AddressScreen, BankScreen, ConsentScreen, GuardianScreen, KycScreen, NomineeScreen, OnboardingScreen, PersonalScreen, ReviewScreen, RiskScreen } from '../screens/onboarding/OnboardingScreens';
+import { ChangePasswordScreen, LanguageScreen, NotificationsScreen, ProfileScreen, SecurityScreen } from '../screens/profile/ProfileScreens';
 import { colors } from '../theme/tokens';
 
 const AuthStack = createNativeStackNavigator();
@@ -40,6 +42,20 @@ export default function RootNavigator() {
     <AppStack.Navigator screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
       <AppStack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <AppStack.Screen name="Support" component={SupportScreen} />
+      <AppStack.Screen name="Onboarding" component={OnboardingScreen} />
+      <AppStack.Screen name="ObPersonal" component={PersonalScreen} />
+      <AppStack.Screen name="ObGuardian" component={GuardianScreen} />
+      <AppStack.Screen name="ObAddress" component={AddressScreen} />
+      <AppStack.Screen name="ObBank" component={BankScreen} />
+      <AppStack.Screen name="ObNominee" component={NomineeScreen} />
+      <AppStack.Screen name="ObRisk" component={RiskScreen} />
+      <AppStack.Screen name="ObConsent" component={ConsentScreen} />
+      <AppStack.Screen name="ObReview" component={ReviewScreen} />
+      <AppStack.Screen name="Kyc" component={KycScreen} />
+      <AppStack.Screen name="Language" component={LanguageScreen} />
+      <AppStack.Screen name="Notifications" component={NotificationsScreen} />
+      <AppStack.Screen name="Security" component={SecurityScreen} />
+      <AppStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
     </AppStack.Navigator>
   );
   return (

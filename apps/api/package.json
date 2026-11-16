@@ -12,7 +12,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "seed": "ts-node prisma/seed.ts",
     "test:int": "TEST_DATABASE_URL=${TEST_DATABASE_URL:?set TEST_DATABASE_URL to a throwaway database} jest --runInBand",
-    "email:smoke": "ts-node scripts/email-smoke.ts"
+    "email:smoke": "ts-node scripts/email-smoke.ts",
+    "db:drift": "prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url \"${SHADOW_DATABASE_URL:?set SHADOW_DATABASE_URL to an empty throwaway database}\" --exit-code"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

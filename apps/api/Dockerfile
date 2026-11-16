@@ -6,7 +6,7 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/
 RUN npm ci -w @techartha/api --include-workspace-root=false
 COPY apps/api apps/api
-RUN cd apps/api && npx prisma generate && npx tsc -p tsconfig.build.json && npm prune --omit=dev -w @techartha/api || true
+RUN cd apps/api && npx prisma generate && npx tsc -p tsconfig.build.json
 
 FROM node:22-bookworm-slim
 ENV NODE_ENV=production

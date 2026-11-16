@@ -21,3 +21,6 @@
 
 ## Milestone 1 (in progress)
 - TLS-verified, pooler-safe DB config; RLS deny-by-default migration + test; API Dockerfile; support screen (WhatsApp/email); Supabase/deployment doc.
+
+## Milestone 2
+- Mobile onboarding (personal, guardian, address, bank, nominee, risk, consent, review, KYC status) and profile (language, notifications, security, change password) screens wired to authenticated `/v1/me/*` APIs; validation parity tests; RLS evaluation and drift/Docker/Supabase blocker documentation.

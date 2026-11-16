@@ -6,13 +6,14 @@ import { hashPassword, validatePasswordStrength } from '../src/common/password';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 async function main() {
-  for (const kind of ['TERMS', 'PRIVACY']) {
+  const TITLES: Record<string, string> = { TERMS: 'Terms of Use', PRIVACY: 'Privacy Policy', RISK: 'Mutual Fund Risk Disclosure', DISTRIBUTOR: 'Distributor Disclosure' };
+  for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR']) {
     await prisma.disclosureVersion.upsert({
       where: { kind_version_locale: { kind, version: '0.1-draft', locale: 'en' } },
       update: {},
       create: {
         kind, version: '0.1-draft', locale: 'en', effectiveFrom: new Date(),
-        title: `${kind === 'TERMS' ? 'Terms of Use' : 'Privacy Policy'} (DRAFT — pending legal review)`,
+        title: `${TITLES[kind]} (DRAFT — pending legal review)`,
         body: 'PLACEHOLDER. Replace with counsel-approved text before release. reviewedBy must be set once reviewed.',
       },
     });
