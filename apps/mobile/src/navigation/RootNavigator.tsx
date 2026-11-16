@@ -11,6 +11,7 @@ import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
 import { SupportScreen } from '../screens/main/SupportScreen';
+import { TicketDetailScreen, TicketNewScreen, TicketsScreen } from '../screens/main/TicketScreens';
 import { ArticleScreen, CategoryScreen, CompareScreen, ExploreScreen, SchemeScreen, WatchlistScreen } from '../screens/explore/ExploreScreens';
 import { ChallengeScreen, QuizScreen } from '../screens/learn/LearnScreens';
 import { InboxScreen } from '../screens/inbox/InboxScreen';
@@ -53,6 +54,9 @@ export default function RootNavigator() {
     <AppStack.Navigator screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
       <AppStack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <AppStack.Screen name="Support" component={SupportScreen} />
+      <AppStack.Screen name="Tickets" component={TicketsScreen} />
+      <AppStack.Screen name="TicketNew" component={TicketNewScreen} />
+      <AppStack.Screen name="TicketDetail" component={TicketDetailScreen} />
       <AppStack.Screen name="Invest" component={InvestScreen} />
       <AppStack.Screen name="PaymentDetail" component={PaymentDetailScreen} />
       <AppStack.Screen name="Payments" component={PaymentsScreen} />
