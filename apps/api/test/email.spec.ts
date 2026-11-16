@@ -59,12 +59,12 @@ describe('EmailService (ZeptoMail client behaviour, stub server)', () => {
     const out: string[] = [];
     const spy = jest.spyOn(process.stdout, 'write').mockImplementation((s: any) => { out.push(String(s)); return true; });
     handler = (_q, r) => { r.writeHead(500); r.end(); };
-    await svc({ NODE_ENV: 'production', JWT_ACCESS_SECRET: 'a'.repeat(32), JWT_REFRESH_SECRET: 'b'.repeat(32), JWT_RESET_SECRET: 'c'.repeat(32), OTP_HMAC_SECRET: 'd'.repeat(32) }).send(msg, meta);
+    await svc({ NODE_ENV: 'production', JWT_ACCESS_SECRET: 'a'.repeat(32), JWT_REFRESH_SECRET: 'b'.repeat(32), JWT_RESET_SECRET: 'c'.repeat(32), OTP_HMAC_SECRET: 'd'.repeat(32), FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') }).send(msg, meta);
     spy.mockRestore();
     expect(out.join('')).not.toMatch(/123456|tok/);
   }, 10_000);
   it('production config refuses console provider, dev bypass and disabled throttling', () => {
-    const prod = { NODE_ENV: 'production', JWT_ACCESS_SECRET: 'a'.repeat(32), JWT_REFRESH_SECRET: 'b'.repeat(32), JWT_RESET_SECRET: 'c'.repeat(32), OTP_HMAC_SECRET: 'd'.repeat(32) };
+    const prod = { NODE_ENV: 'production', JWT_ACCESS_SECRET: 'a'.repeat(32), JWT_REFRESH_SECRET: 'b'.repeat(32), JWT_RESET_SECRET: 'c'.repeat(32), OTP_HMAC_SECRET: 'd'.repeat(32), FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64') };
     expect(() => loadConfig({ ...prod, EMAIL_PROVIDER: 'console' } as any)).toThrow();
     expect(() => loadConfig({ ...prod, EMAIL_PROVIDER: 'zeptomail', ZEPTOMAIL_SEND_MAIL_TOKEN: 't', AUTH_DEV_BYPASS: 'true' } as any)).toThrow();
     expect(() => loadConfig({ ...prod, EMAIL_PROVIDER: 'zeptomail', ZEPTOMAIL_SEND_MAIL_TOKEN: 't', THROTTLE_DISABLED: 'true' } as any)).toThrow();

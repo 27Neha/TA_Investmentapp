@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export interface AppConfig {
   nodeEnv: string;
   isProd: boolean;
@@ -7,6 +9,7 @@ export interface AppConfig {
   refreshSecret: string;
   resetSecret: string;
   otpHmacSecret: string;
+  fieldEncryptionKey: Buffer;
   accessTtl: string;
   refreshTtlDays: number;
   emailProvider: 'console' | 'zeptomail';
@@ -27,6 +30,18 @@ function secret(name: string, isProd: boolean, env: NodeJS.ProcessEnv): string {
     throw new Error(`${name} must be set (min 32 chars) in production`);
   }
   return DEV_SECRET + name;
+}
+
+/** 32-byte AES key, base64 in FIELD_ENCRYPTION_KEY. Mandatory in production; a fixed dev key is used elsewhere. */
+function fieldKey(isProd: boolean, env: NodeJS.ProcessEnv): Buffer {
+  const v = env.FIELD_ENCRYPTION_KEY;
+  if (v) {
+    const b = Buffer.from(v, 'base64');
+    if (b.length !== 32) throw new Error('FIELD_ENCRYPTION_KEY must be 32 bytes, base64 encoded (openssl rand -base64 32)');
+    return b;
+  }
+  if (isProd) throw new Error('FIELD_ENCRYPTION_KEY must be set in production');
+  return createHash('sha256').update(DEV_SECRET + 'FIELD').digest();
 }
 
 export function loadConfig(env = process.env): AppConfig {
@@ -54,6 +69,7 @@ export function loadConfig(env = process.env): AppConfig {
     refreshSecret: secret('JWT_REFRESH_SECRET', isProd, env),
     resetSecret: secret('JWT_RESET_SECRET', isProd, env),
     otpHmacSecret: secret('OTP_HMAC_SECRET', isProd, env),
+    fieldEncryptionKey: fieldKey(isProd, env),
     accessTtl: env.ACCESS_TOKEN_TTL ?? '15m',
     refreshTtlDays: Number(env.REFRESH_TOKEN_TTL_DAYS ?? 30),
     emailProvider,

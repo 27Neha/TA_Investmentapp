@@ -254,6 +254,41 @@ export class AuthService {
     }
   }
 
+  // ---- Authenticated account security ----
+
+  /** Verifies the current password, sets the new one, revokes EVERY session, and returns a fresh token pair for this device. */
+  async changePassword(userId: string, currentPassword: string, newPassword: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
+    if (!validatePasswordStrength(newPassword)) throw new BadRequestException(PASSWORD_RULES);
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.status !== 'ACTIVE') throw new UnauthorizedException();
+    if (!(await verifyPassword(user.passwordHash, currentPassword))) {
+      throw new BadRequestException({ message: 'Your current password is incorrect.', code: 'WRONG_PASSWORD' });
+    }
+    if (await verifyPassword(user.passwordHash, newPassword)) {
+      throw new BadRequestException('Choose a password different from your current one.');
+    }
+    const passwordHash = await hashPassword(newPassword);
+    await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { passwordHash } }),
+      this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+    ]);
+    return this.issueTokens(user, randomUUID(), ctx);
+  }
+
+  async listSessions(userId: string) {
+    const rows = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() }, replacedBy: null },
+      orderBy: { createdAt: 'desc' },
+      select: { familyId: true, createdAt: true, userAgent: true },
+    });
+    return rows.map((r) => ({ id: r.familyId, signedInAt: r.createdAt, device: r.userAgent ?? 'Unknown device' }));
+  }
+
+  async revokeAllSessions(userId: string) {
+    const r = await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    return { revoked: r.count };
+  }
+
   private async issueTokens(user: User, familyId: string, ctx: { ip?: string; userAgent?: string }): Promise<TokenPair> {
     const accessToken = await this.jwt.signAsync(
       { sub: user.id, role: user.role },

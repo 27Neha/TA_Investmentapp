@@ -39,7 +39,7 @@ export async function makeApp(opts: { throttle?: boolean } = {}) {
 }
 
 export async function resetDb(prisma: PrismaService) {
-  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","User" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","InvestorProfile","Address","BankAccount","Nominee","KycRecord","RiskAssessment","NotificationPreference","GuardianLink","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","User" CASCADE');
   for (const kind of ['TERMS', 'PRIVACY']) {
     await prisma.disclosureVersion.create({ data: { kind, version: 'it-1', locale: 'en', title: kind, body: 'test', effectiveFrom: new Date(Date.now() - 1000) } });
   }

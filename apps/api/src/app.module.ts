@@ -6,6 +6,7 @@ import { APP_CONFIG, loadConfig } from './common/config';
 import { ConsentController } from './consent/consent.controller';
 import { FlagsModule } from './flags/flags.module';
 import { HealthController } from './health/health.controller';
+import { MeModule } from './me/me.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ProvidersModule } from './providers/providers.module';
 import { Global } from '@nestjs/common';
@@ -22,6 +23,7 @@ class ConfigModule {}
     AuthModule,
     FlagsModule,
     ProvidersModule,
+    MeModule,
   ],
   controllers: [HealthController, ConsentController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

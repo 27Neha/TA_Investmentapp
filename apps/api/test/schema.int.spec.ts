@@ -13,7 +13,7 @@ function parseSchema(src: string) {
   const models: M[] = []; const enums: { name: string; values: string[] }[] = [];
   for (const m of src.matchAll(/^(model|enum)\s+(\w+)\s*\{([\s\S]*?)^\}/gm)) {
     const lines = m[3].split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('//'));
-    if (m[1] === 'enum') { enums.push({ name: m[2], values: lines }); continue; }
+    if (m[1] === 'enum') { enums.push({ name: m[2], values: lines.map((l) => l.replace(/\s*\/\/.*$/, '')) }); continue; }
     const fields: F[] = []; const blockAttrs: string[] = [];
     for (const l of lines) {
       if (l.startsWith('@@')) { blockAttrs.push(l); continue; }
@@ -34,7 +34,7 @@ d('Migration matches schema.prisma', () => {
   beforeAll(() => { process.env.DATABASE_URL = process.env.TEST_DATABASE_URL; prisma = new PrismaService(); });
   afterAll(async () => { await prisma.$disconnect(); });
 
-  it('parsed a sensible number of models and enums', () => { expect(models.length).toBe(9); expect(enums.length).toBe(5); });
+  it('parsed a sensible number of models and enums', () => { expect(models.length).toBe(17); expect(enums.length).toBe(8); });
 
   it('RLS is enabled (deny-by-default) on every application table', async () => {
     const rows: any[] = await prisma.$queryRawUnsafe(`SELECT c.relname::text AS t FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname<>'_prisma_migrations'`);
@@ -85,7 +85,7 @@ d('Migration matches schema.prisma', () => {
         expect({ name, rule: map.get(name) }).toEqual({ name, rule: code[del] }); checked++;
       }
     }
-    expect(checked).toBe(5);
+    expect(checked).toBe(13);
   });
 
   it('enums in the database match the schema, in order', async () => {
@@ -93,7 +93,7 @@ d('Migration matches schema.prisma', () => {
       const vals: any[] = await prisma.$queryRawUnsafe(`SELECT e.enumlabel::text AS enumlabel FROM pg_enum e JOIN pg_type t ON t.oid=e.enumtypid WHERE t.typname='${e.name}' ORDER BY e.enumsortorder`);
       expect({ e: e.name, v: vals.map((v) => v.enumlabel) }).toEqual({ e: e.name, v: e.values });
     }
-    expect(enumNames.size).toBe(5);
+    expect(enumNames.size).toBe(8);
   });
 
   it('referential behaviour: cascade deletes tokens, audit rows survive (SET NULL), orphan consent rejected', async () => {

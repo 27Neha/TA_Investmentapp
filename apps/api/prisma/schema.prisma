@@ -56,6 +56,14 @@ model User {
   otpChallenges OtpChallenge[]
   consents      ConsentRecord[]
   auditEvents   AdminAuditEvent[] @relation("AuditActor")
+  profile       InvestorProfile?
+  address       Address?
+  bankAccount   BankAccount?
+  nominees      Nominee[]
+  kyc           KycRecord?
+  riskAssessments RiskAssessment[]
+  notificationPrefs NotificationPreference?
+  guardianLink  GuardianLink?
 
   @@index([role])
 }
@@ -185,4 +193,121 @@ model EmailLog {
 
   @@index([providerMessageId])
   @@index([userId, createdAt])
+}
+
+enum KycStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PENDING_PROVIDER // details captured locally; NOT verified. Only a verified provider callback may set VERIFIED.
+  VERIFIED
+  REJECTED
+}
+
+enum BankStatus {
+  UNVERIFIED
+  VERIFIED // only settable by a provider/penny-drop integration (not built)
+  REJECTED
+}
+
+enum GuardianStatus {
+  PENDING_VERIFICATION
+  VERIFIED // only settable by an operations/compliance process (not built)
+  REJECTED
+}
+
+// Sensitive identifiers (PAN, account number) are AES-256-GCM encrypted at the application layer; only masked tails are stored in clear.
+model InvestorProfile {
+  userId      String    @id
+  gender      String?
+  occupation  String?
+  incomeBand  String?
+  panEnc      String?
+  panLast4    String?
+  taxResidentIndia Boolean?
+  pepDeclared Boolean?
+  nomineeOptOut Boolean @default(false)
+  confirmedAt DateTime? // user confirmed the onboarding review (does NOT imply KYC verified)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  userId    String   @id
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("IN")
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BankAccount {
+  userId      String     @id
+  holderName  String
+  accountEnc  String
+  accountLast4 String
+  ifsc        String
+  accountType String
+  status      BankStatus @default(UNVERIFIED)
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Nominee {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  relationship String
+  dateOfBirth  DateTime @db.Date
+  sharePercent Int
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model KycRecord {
+  userId      String    @id
+  status      KycStatus @default(NOT_STARTED)
+  submittedAt DateTime?
+  providerRef String?
+  note        String?
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RiskAssessment {
+  id        String   @id @default(uuid())
+  userId    String
+  version   String
+  answers   Json
+  score     Int
+  band      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  userId         String   @id
+  emailMarketing Boolean  @default(false)
+  pushEnabled    Boolean  @default(true)
+  whatsappUpdates Boolean @default(false)
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Minors cannot complete KYC/onboarding until a guardian is verified. Verification workflow is Phase 2 (operations-driven).
+model GuardianLink {
+  userId       String         @id
+  guardianName String
+  relationship String
+  guardianMobile String
+  status       GuardianStatus @default(PENDING_VERIFICATION)
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
