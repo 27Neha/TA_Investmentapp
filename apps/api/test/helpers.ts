@@ -48,7 +48,7 @@ export async function makeApp(opts: { throttle?: boolean; provider?: any; kycPro
 }
 
 export async function resetDb(prisma: PrismaService) {
-  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","InvestorProfile","Address","BankAccount","Nominee","KycRecord","RiskAssessment","NotificationPreference","GuardianLink","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","OutboxJob","ProviderWebhookEvent","SupportAttachment","SupportMessage","SupportTicket","KycAttemptEvent","KycVerificationAttempt","KycConsent","User" CASCADE');
+  await prisma.$executeRawUnsafe('TRUNCATE "AdminAuditEvent","InvestorProfile","Address","BankAccount","Nominee","KycRecord","RiskAssessment","NotificationPreference","GuardianLink","EmailLog","ConsentRecord","OtpChallenge","RefreshToken","DisclosureVersion","FeatureFlag","OutboxJob","ProviderWebhookEvent","SupportAttachment","SupportMessage","SupportTicket","GuardianAuditEvent","GuardianPermission","GuardianLinkage","KycAttemptEvent","KycVerificationAttempt","KycConsent","User" CASCADE');
   for (const kind of ['TERMS', 'PRIVACY']) {
     await prisma.disclosureVersion.create({ data: { kind, version: 'it-1', locale: 'en', title: kind, body: 'test', effectiveFrom: new Date(Date.now() - 1000) } });
   }
