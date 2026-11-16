@@ -123,7 +123,7 @@ d('platform migration: constraints, triggers and plans', () => {
     const ev = await prisma.kycAttemptEvent.create({ data: { attemptId: a.id, toStatus: 'VERIFIED', eventType: 'X', source: 'PROVIDER_VERIFIED' } });
     await rejects(sql(`DELETE FROM "KycAttemptEvent" WHERE id=$1`, ev.id), /append-only/);
     await rejects(prisma.kycAttemptEvent.create({ data: { attemptId: a.id, toStatus: 'VERIFIED', eventType: 'X', source: 'USER' } }), /source_chk|constraint/i);
-    const cols = (await prisma.$queryRawUnsafe<any[]>(`SELECT column_name FROM information_schema.columns WHERE table_name IN ('KycConsent','KycVerificationAttempt','KycAttemptEvent')`)).map((r) => r.column_name.toLowerCase());
+    const cols = (await prisma.$queryRawUnsafe<any[]>(`SELECT column_name::text AS column_name FROM information_schema.columns WHERE table_name IN ('KycConsent','KycVerificationAttempt','KycAttemptEvent')`)).map((r) => r.column_name.toLowerCase());
     expect(cols.filter((x) => /aadhaar|aadhar|otp|password|secret/.test(x))).toEqual([]); // nothing to store an Aadhaar number or OTP in
     await rejects(sql(`DELETE FROM "User" WHERE id=$1`, u), /foreign key|violates/i); // consent/verification evidence cannot be cascaded away
   });
