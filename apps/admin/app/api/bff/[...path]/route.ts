@@ -3,7 +3,7 @@ import { callApi, clearSession, csrfOk, resolveAccess, setSession } from '../../
 
 // Only admin API paths are reachable through the BFF. Authorisation itself is enforced by the API (roles in the JWT);
 // this allow-list just stops the browser using the BFF as a generic proxy to auth endpoints.
-const ALLOWED = /^v1\/admin\/(flags(\/[\w.]+)?|providers)$/;
+const ALLOWED = /^v1\/admin\/(flags(\/[\w.]+)?|providers|support\/tickets(\/[0-9a-f-]{36})?|payments|mandates|sips|guardian\/links|kyc\/reviews(\/[0-9a-f-]{36}\/decision)?)$/;
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   if (!csrfOk(req)) return NextResponse.json({ message: 'Forbidden' }, { status: 403 });

@@ -1,6 +1,7 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Views } from './Views';
 
 type Flag = { key: string; description: string; enabled: boolean };
 const H = { 'Content-Type': 'application/json', 'x-ta-csrf': '1' };
@@ -25,12 +26,14 @@ export default function DashboardClient({ role }: { role: string }) {
     if (f.key.startsWith('investing') && !f.enabled && !confirm('Enabling regulated functionality requires provider production access and compliance approval. Continue?')) return;
     try { await call(`v1/admin/flags/${f.key}`, { method: 'PUT', body: JSON.stringify({ enabled: !f.enabled }) }); await load(); } catch (e) { setErr((e as Error).message); }
   };
+  const expired = useCallback(() => r.push('/'), [r]);
   const signOut = async () => { await fetch('/api/auth/logout', { method: 'POST', headers: H }); r.push('/'); };
 
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <small>Signed in as <strong>{role}</strong></small>
       {err && <div role="alert" style={{ color: '#B3261E' }}>⚠ {err}</div>}
+      <Views role={role} onExpired={expired} />
       <section style={{ background: '#fff', padding: 20, borderRadius: 12 }}>
         <h3>Feature flags</h3>
         <p style={{ color: '#5B5B73' }}>Only administrators can change these; every change is audited.</p>
