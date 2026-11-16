@@ -12,6 +12,8 @@ import te from './te';
 import as from './as';
 import kn from './kn';
 import ml from './ml';
+import or from './or';
+import ur from './ur';
 
 import { LOCALE_REGISTRY } from './locales';
 
@@ -19,7 +21,7 @@ import { LOCALE_REGISTRY } from './locales';
 export const LOCALES = LOCALE_REGISTRY.map((l) => l.code);
 export type Locale = string;
 export const localeName = (code: string) => LOCALE_REGISTRY.find((l) => l.code === code)?.nativeName ?? code;
-const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr, gu, pa, bn, ta, te, as, kn, ml };
+const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr, gu, pa, bn, ta, te, as, kn, ml, or, ur };
 const KEY = 'ta.locale';
 
 export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string>): string {

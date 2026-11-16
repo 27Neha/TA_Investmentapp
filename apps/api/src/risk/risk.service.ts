@@ -16,7 +16,7 @@ export class RiskService {
   framework() { return { ...RISK_FRAMEWORK, draftNotice: 'Draft questionnaire awaiting approved questions and scoring. It does not constitute investment advice, and it is not a scheme Riskometer.', questions: RISK_QUESTIONS.map((q) => ({ id: q.id, options: q.options.map((o) => o.id) })) }; }
 
   async status(uid: string) {
-    const r = await this.prisma.riskAssessment.findFirst({ where: { userId: uid }, orderBy: { createdAt: 'desc' } });
+    const r = await this.prisma.riskAssessment.findFirst({ where: { userId: uid, version: RISK_VERSION }, orderBy: { createdAt: 'desc' } });
     const draft = await this.prisma.riskDraft.findUnique({ where: { userId: uid } });
     if (!r) return { completed: false, latest: null, outdated: false, ageDays: null, draftAnswered: draft ? Object.keys(draft.answers as object).length : 0 };
     const ageDays = Math.floor((Date.now() - r.createdAt.getTime()) / DAY);
@@ -45,7 +45,7 @@ export class RiskService {
     if (!a) { const d = await this.prisma.riskDraft.findUnique({ where: { userId: uid } }); a = (d?.answers as Record<string, string>) ?? {}; }
     const res = scoreRisk(a);
     if (!res) throw new BadRequestException({ message: 'Please answer every question with a valid option.', code: 'RISK_INCOMPLETE' });
-    const previous = await this.prisma.riskAssessment.findFirst({ where: { userId: uid }, orderBy: { createdAt: 'desc' } });
+    const previous = await this.prisma.riskAssessment.findFirst({ where: { userId: uid, version: RISK_VERSION }, orderBy: { createdAt: 'desc' } });
     const created = await this.prisma.riskAssessment.create({ data: { userId: uid, version: RISK_VERSION, answers: a, score: res.score, band: res.band } });
     await this.prisma.riskDraft.deleteMany({ where: { userId: uid } });
     await this.prisma.investorProfile.updateMany({ where: { userId: uid }, data: { confirmedAt: null } });
@@ -55,11 +55,11 @@ export class RiskService {
   }
 
   async history(uid: string) {
-    const rows = await this.prisma.riskAssessment.findMany({ where: { userId: uid }, orderBy: { createdAt: 'desc' }, take: 50 });
+    const rows = await this.prisma.riskAssessment.findMany({ where: { userId: uid, version: RISK_VERSION }, orderBy: { createdAt: 'desc' }, take: 50 });
     return rows.map(view);
   }
   async compare(uid: string) {
-    const rows = await this.prisma.riskAssessment.findMany({ where: { userId: uid }, orderBy: { createdAt: 'desc' }, take: 2 });
+    const rows = await this.prisma.riskAssessment.findMany({ where: { userId: uid, version: RISK_VERSION }, orderBy: { createdAt: 'desc' }, take: 2 });
     if (rows.length < 2) return { comparable: false, reason: rows.length ? 'ONLY_ONE_ASSESSMENT' : 'NO_ASSESSMENT', current: rows[0] ? view(rows[0]) : null, previous: null };
     return { comparable: true, ...this.compareRows(rows[1], rows[0]) };
   }
