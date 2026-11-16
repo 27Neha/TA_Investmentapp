@@ -1,7 +1,8 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsDateString, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
-export const SUPPORTED_LOCALES = ['en', 'hi', 'mr'] as const; // extend once the approved ~13-language list is confirmed
+/** Mirrors apps/mobile/src/i18n/locales.ts. 11 owner-confirmed (en hi mr gu pa bn ta te as kn ml) + 2 PROPOSED (or ur) pending the owner's final list; edit both registries together. Legal text for non-English locales falls back to English until human-reviewed. */
+export const SUPPORTED_LOCALES = ['en', 'hi', 'mr', 'gu', 'pa', 'bn', 'ta', 'te', 'as', 'kn', 'ml', 'or', 'ur'] as const;
 
 export class SignupDto {
   @IsString() @Length(2, 100) fullName: string;

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
+import { I18nManager } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import en, { TranslationKey } from './en';
 import hi from './hi';
@@ -45,7 +46,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       if (pick && LOCALES.includes(pick)) setLoc(pick);
     }).catch(() => undefined);
   }, []);
-  const setLocale = useCallback((l: Locale) => { setLoc(l); AsyncStorage.setItem(KEY, l).catch(() => undefined); }, []);
+  const setLocale = useCallback((l: Locale) => {
+    setLoc(l); AsyncStorage.setItem(KEY, l).catch(() => undefined);
+    // Right-to-left (Urdu): Android applies the layout direction on the NEXT app launch. Not verified on a device.
+    const rtl = Boolean(LOCALE_REGISTRY.find((x) => x.code === l)?.rtl);
+    if (I18nManager.isRTL !== rtl) { I18nManager.allowRTL(rtl); I18nManager.forceRTL(rtl); }
+  }, []);
   const t = useCallback((k: TranslationKey, v?: Record<string, string>) => translate(locale, k, v), [locale]);
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

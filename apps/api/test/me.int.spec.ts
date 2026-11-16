@@ -232,6 +232,11 @@ d('M2 onboarding, profile and security APIs against real PostgreSQL', () => {
       await a.patch('/v1/me/locale', { locale: 'hi' }).expect(200);
       expect((await a.get('/v1/me')).body.locale).toBe('hi');
       await a.patch('/v1/me/locale', { locale: 'xx' }).expect(400);
+      // Every language in the app's registry (11 confirmed + proposed or/ur) can be saved to the profile and read back.
+      for (const l of ['en', 'hi', 'mr', 'gu', 'pa', 'bn', 'ta', 'te', 'as', 'kn', 'ml', 'or', 'ur']) {
+        await a.patch('/v1/me/locale', { locale: l }).expect(200);
+        expect((await a.get('/v1/me')).body.locale).toBe(l);
+      }
       expect((await a.get('/v1/me/notifications')).body).toEqual({ transactionalEmail: true, emailMarketing: false, pushEnabled: true, whatsappUpdates: false });
       await a.put('/v1/me/notifications', { emailMarketing: true, pushEnabled: false, whatsappUpdates: true }).expect(200);
       expect((await a.get('/v1/me/notifications')).body).toMatchObject({ emailMarketing: true, pushEnabled: false, whatsappUpdates: true, transactionalEmail: true });
