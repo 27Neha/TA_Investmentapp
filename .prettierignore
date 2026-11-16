@@ -1,0 +1,10 @@
+node_modules
+dist
+.next
+.expo
+build
+coverage
+package-lock.json
+apps/api/prisma/migrations
+apps/mobile/web-build
+*.md

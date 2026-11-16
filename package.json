@@ -11,7 +11,13 @@
     "api:test": "npm test -w apps/api",
     "api:build": "npm run build -w apps/api",
     "mobile:start": "npm run start -w apps/mobile",
-    "admin:dev": "npm run dev -w apps/admin"
+    "admin:dev": "npm run dev -w apps/admin",
+    "lint": "eslint .",
+    "lint:api": "eslint apps/api",
+    "lint:mobile": "eslint apps/mobile",
+    "lint:admin": "eslint apps/admin",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",
@@ -21,5 +27,8 @@
     "globals": "17.14.0",
     "prettier": "3.10.1",
     "typescript-eslint": "8.72.2"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }
