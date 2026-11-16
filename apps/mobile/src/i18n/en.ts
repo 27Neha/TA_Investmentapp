@@ -22,6 +22,10 @@ const en = {
   'home.greeting': 'Hello, {name}', 'home.empty': 'Your portfolio will appear here once you start investing.',
   'soon.title': 'Coming soon', 'soon.body': 'This section is being built and is not available yet.',
   'profile.logout': 'Log out', 'profile.language': 'Language',
+  'support.title': 'Contact support', 'support.intro': 'Reach the TechArtha team on WhatsApp or email. We reply during business hours.',
+  'support.whatsapp': 'WhatsApp', 'support.email': 'Email', 'support.prefill': 'Hello TechArtha, I need help with the app.',
+  'support.subject': 'TechArtha app support', 'support.openFailed': 'Could not open the app. Please contact support@TechArtha.com',
+  'support.privacy': 'Never share your OTP, password, PAN or bank details in a message.', 'profile.support': 'Contact support',
   'disclosure.mf': 'Mutual fund investments are subject to market risks. Read all scheme related documents carefully.',
 };
 export type TranslationKey = keyof typeof en;

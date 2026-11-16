@@ -18,3 +18,6 @@
 - Admin: httpOnly cookie BFF with CSRF checks, server-side role verification, logout revocation, 8 h staff sessions, audited staff login.
 - Mobile: unverified-login recovery, resend countdown, forgot-password resend/change-email/start-over, locale registry, i18n checker, legal-key protection.
 - Docs: status, test report, integration status, security review, blockers, migration + device checklists.
+
+## Milestone 1 (in progress)
+- TLS-verified, pooler-safe DB config; RLS deny-by-default migration + test; API Dockerfile; support screen (WhatsApp/email); Supabase/deployment doc.

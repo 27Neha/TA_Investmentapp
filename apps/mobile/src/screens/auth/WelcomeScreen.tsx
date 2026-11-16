@@ -21,6 +21,7 @@ export default function WelcomeScreen({ navigation }: any) {
       <View style={{ gap: spacing.md, marginTop: spacing.lg }}>
         <Button label={t('welcome.login')} onPress={() => navigation.navigate('Login')} />
         <Button variant="secondary" label={t('welcome.signup')} onPress={() => navigation.navigate('Signup')} />
+        <Button variant="link" label={t('profile.support')} onPress={() => navigation.navigate('Support')} />
       </View>
       <Text style={{ color: colors.textMuted, fontSize: 12 }}>{t('disclosure.mf')}</Text>
     </Screen>

@@ -16,7 +16,7 @@ export const ExploreScreen = Soon('tabs.explore');
 export const GoalsScreen = Soon('tabs.goals');
 export const PortfolioScreen = Soon('tabs.portfolio');
 
-export function ProfileScreen() {
+export function ProfileScreen({ navigation }: any) {
   const { t, locale, setLocale } = useI18n();
   const { logout } = useAuth();
   return (
@@ -24,6 +24,7 @@ export function ProfileScreen() {
       <Title>{t('tabs.profile')}</Title>
       <Body muted>{t('profile.language')}</Body>
       {LOCALES.map((l) => <Button key={l} variant={l === locale ? 'primary' : 'secondary'} label={localeName(l)} onPress={() => setLocale(l)} />)}
+      <Button variant="secondary" label={t('profile.support')} onPress={() => navigation.navigate('Support')} />
       <Button variant="secondary" label={t('profile.logout')} onPress={logout} />
     </Screen>
   );

@@ -10,11 +10,13 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import SignupScreen from '../screens/auth/SignupScreen';
 import VerifyEmailScreen from '../screens/auth/VerifyEmailScreen';
 import WelcomeScreen from '../screens/auth/WelcomeScreen';
+import { SupportScreen } from '../screens/main/SupportScreen';
 import { ExploreScreen, GoalsScreen, HomeScreen, PortfolioScreen, ProfileScreen } from '../screens/main/MainScreens';
 import { colors } from '../theme/tokens';
 
 const AuthStack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
+const AppStack = createNativeStackNavigator();
 
 function MainTabs() {
   const { t } = useI18n();
@@ -34,7 +36,12 @@ export default function RootNavigator() {
   const { ready, signedIn } = useAuth();
   if (!ready) return <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>;
   // Home is a root tab: it never navigates to Login. Signing out swaps the whole tree, so there is no invalid back route.
-  if (signedIn) return <MainTabs />;
+  if (signedIn) return (
+    <AppStack.Navigator screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
+      <AppStack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
+      <AppStack.Screen name="Support" component={SupportScreen} />
+    </AppStack.Navigator>
+  );
   return (
     <AuthStack.Navigator initialRouteName="Welcome" screenOptions={{ header: (p) => <AppHeader {...p} /> }}>
       <AuthStack.Screen name="Welcome" component={WelcomeScreen} />
@@ -42,6 +49,7 @@ export default function RootNavigator() {
       <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="Support" component={SupportScreen} />
     </AuthStack.Navigator>
   );
 }

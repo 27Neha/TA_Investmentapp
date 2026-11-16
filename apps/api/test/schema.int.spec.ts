@@ -36,6 +36,11 @@ d('Migration matches schema.prisma', () => {
 
   it('parsed a sensible number of models and enums', () => { expect(models.length).toBe(9); expect(enums.length).toBe(5); });
 
+  it('RLS is enabled (deny-by-default) on every application table', async () => {
+    const rows: any[] = await prisma.$queryRawUnsafe(`SELECT c.relname::text AS t FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND NOT c.relrowsecurity AND c.relname<>'_prisma_migrations'`);
+    expect(rows.map((r) => r.t)).toEqual([]);
+  });
+
   it('every model has a table; every scalar field a column with the right nullability and a default where declared', async () => {
     for (const m of models) {
       const cols: any[] = await prisma.$queryRawUnsafe(`SELECT column_name::text AS column_name, is_nullable::text AS is_nullable, column_default::text AS column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='${m.name}'`);
