@@ -1,16 +1,20 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
+import { FileSchemeRiskometer } from '../src/investing/scheme-riskometer';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { QUESTIONS, scoreV1 } from '../src/risk/engine/ta-risk-v1';
 import { FakeInvestmentProvider, sign } from './fakes/investment-provider.fake';
 import { CapturingEmail, hasDb, makeApp, PW, resetDb, signupBody } from './helpers';
 
 /** Payments, mandates, SIPs: fail-closed gating, provider-verified-only success, idempotency, isolation. Disposable PostgreSQL + a test-only fake provider. */
 const d = hasDb ? describe : describe.skip;
+const today = new Date().toISOString().slice(0, 10);
+const ans = (lvl: number) => Object.fromEntries(QUESTIONS.map((q) => [q.id, q.options[lvl]]));
 
 d('payments / mandates / SIPs', () => {
   let app: INestApplication, email: CapturingEmail, prisma: PrismaService; const fake = new FakeInvestmentProvider(); let n = 0;
   const http = () => request(app.getHttpServer());
-  beforeAll(async () => { ({ app, email, prisma } = await makeApp({ provider: fake })); });
+  beforeAll(async () => { ({ app, email, prisma } = await makeApp({ provider: fake, riskometer: new FileSchemeRiskometer({ source: 'test fixture', asOf: today, schemes: { '100': 'MODERATE', '200': 'VERY_HIGH', '300': 'HIGH' } }) })); });
   afterAll(async () => { await app.close(); });
   beforeEach(async () => { await resetDb(prisma); email.sent = []; fake.connected = true; fake.failCreate = false; fake.cancelled = []; fake.statuses = {}; });
 
@@ -22,6 +26,7 @@ d('payments / mandates / SIPs', () => {
     const t = (await http().post('/v1/auth/login').send({ email: e, password: PW }).expect(200)).body.accessToken as string;
     if (ready) {
       await prisma.kycRecord.create({ data: { userId: id, status: 'VERIFIED' } });
+      const a = ans(2), r = scoreV1(a as any); await prisma.riskAssessment.create({ data: { userId: id, version: 'ta-risk-v1', answers: a, score: r.score, band: r.band } });
       await prisma.bankAccount.create({ data: { userId: id, holderName: 'T', accountEnc: 'x', accountLast4: '1234', ifsc: 'HDFC0000001', accountType: 'SAVINGS' } });
     }
     return { id, t };
@@ -155,5 +160,28 @@ d('payments / mandates / SIPs', () => {
     await auth(u.t, http().post('/v1/me/payments').send({ ...body(), status: 'SUCCESS' })).expect(400); // client cannot supply status
     await auth(u.t, http().post('/v1/me/payments').send({ ...body(), providerPaymentRef: 'FAKE' })).expect(400);
     expect(await prisma.payment.count()).toBe(0);
+  });
+
+  it('suitability: links the stored risk profile to the scheme riskometer; unknown data is UNKNOWN, never a guess', async () => {
+    const u = await user(); const r = (code: string) => auth(u.t, http().get(`/v1/me/suitability/${code}`));
+    const ok = (await r('100').expect(200)).body; expect(ok).toMatchObject({ status: 'CONSISTENT', note: 'NOT_A_RECOMMENDATION', policyReviewed: false, scheme: { level: 'MODERATE', source: 'test fixture' } });
+    const high = (await r('200').expect(200)).body; expect(high.status).toBe('ABOVE_PROFILE'); expect(high.profile.band).toBeTruthy();
+    const none = (await r('999').expect(200)).body; expect(none).toMatchObject({ status: 'UNKNOWN', reasons: ['RISKOMETER_UNAVAILABLE'], scheme: null });
+    const bare = await user(false); expect((await auth(bare.t, http().get('/v1/me/suitability/100')).expect(200)).body).toMatchObject({ status: 'UNKNOWN', reasons: ['NO_ASSESSMENT'] });
+    await r('abc').expect(400); await http().get('/v1/me/suitability/100').expect(401);
+  });
+
+  it('orders: a scheme above the profile needs an explicit, audited acknowledgement; unknown suitability blocks; success still comes only from the provider', async () => {
+    await flags(true); const u = await user();
+    const hi = { ...body(), schemeCode: '200' };
+    const r1 = await auth(u.t, http().post('/v1/me/payments').send(hi)).expect(409); expect(r1.body.error).toBe('RISK_ACK_REQUIRED'); expect(r1.body.suitability.status).toBe('ABOVE_PROFILE');
+    expect(await prisma.investmentOrder.count()).toBe(0);
+    const p = (await auth(u.t, http().post('/v1/me/payments').send({ ...hi, acknowledgeRisk: true })).expect(201)).body; expect(p.status).not.toBe('SUCCESS'); expect(p.confirmed).toBe(false);
+    expect(await prisma.auditLog.count({ where: { userId: u.id, action: 'INVEST_RISK_MISMATCH_ACK' } })).toBe(1);
+    const sip = { ...body(), schemeCode: '200', frequency: 'MONTHLY', dayOfMonth: 5, startDate: '2027-01-05' };
+    expect((await auth(u.t, http().post('/v1/me/sips').send(sip)).expect(409)).body.error).toBe('RISK_ACK_REQUIRED');
+    const unknown = await auth(u.t, http().post('/v1/me/payments').send({ ...body(), schemeCode: '999' })).expect(403); expect(unknown.body.reasons).toContain('RISKOMETER_UNAVAILABLE');
+    const noProfile = await user(false); await prisma.kycRecord.create({ data: { userId: noProfile.id, status: 'VERIFIED' } }); await prisma.bankAccount.create({ data: { userId: noProfile.id, holderName: 'T', accountEnc: 'x', accountLast4: '1234', ifsc: 'HDFC0000001', accountType: 'SAVINGS' } });
+    expect((await auth(noProfile.t, http().post('/v1/me/payments').send(body())).expect(403)).body.reasons).toContain('NO_ASSESSMENT');
   });
 });

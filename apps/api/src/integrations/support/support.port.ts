@@ -31,8 +31,24 @@ export interface SupportPort {
   /** A user's follow-up. Design depends on the contact-authored-reply spike (docs/ZOHO-INTEGRATION-ARCHITECTURE.md 4.4). */
   addUserFollowUp(externalTicketId: string, userId: string, text: string): Promise<{ threadId?: string }>;
   /** Optional: present only when inbound webhooks are verified (Desk webhooks need Professional edition+). Must verify the raw bytes and throw SupportWebhookRejectedError on failure. */
-  verifyAndNormalizeWebhook?(raw: Buffer, headers: Record<string, string | string[] | undefined>): SupportInboundEvent[];
+  verifyAndNormalizeWebhook?(raw: Buffer, headers: Record<string, string | string[] | undefined>): SupportInboundEvent[] | Promise<SupportInboundEvent[]>;
+  /** Read-only checks against the real organization (auth, department, ticket read). Never creates data. Present only on real adapters. */
+  probe?(): Promise<DeskCapabilityReport>;
+  /** Current state of a ticket we created (pull sync / reconciliation). null = the desk does not know it. */
+  getTicketState?(externalTicketId: string): Promise<DeskTicketState | null>;
+  /** Agent-authored (outgoing) threads on a ticket, oldest first, with plain-text bodies. */
+  listAgentThreads?(externalTicketId: string): Promise<DeskAgentThread[]>;
 }
+
+export interface DeskCapabilityReport {
+  checkedAt: string;
+  /** Per-check results. `ok:false` carries a short, non-sensitive reason (HTTP status or code), never a token or response body. */
+  checks: { name: 'oauth' | 'department' | 'tickets.read' | 'webhook.keys'; ok: boolean; detail?: string }[];
+  /** What the app may rely on. Anything not listed here is NOT verified and stays disabled. */
+  capabilities: { pullSync: boolean; webhook: boolean };
+}
+export interface DeskTicketState { status: 'OPEN' | 'ON_HOLD' | 'ESCALATED' | 'CLOSED'; deskStatus: string; modifiedTime?: string }
+export interface DeskAgentThread { threadId: string; authorName?: string; body: string; occurredAt: Date }
 
 /** Inbound change from the desk, already authenticated and normalised by the adapter. */
 export interface SupportInboundEvent {

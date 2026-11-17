@@ -14,6 +14,8 @@ export interface EmailResult {
 }
 
 const MAX_ATTEMPTS = 3;
+/** Sign-in and recovery emails are always attempted. Everything else is skipped for an address that hard-bounced (protects sender reputation). */
+const CRITICAL_PURPOSES = new Set(['EMAIL_VERIFY', 'PASSWORD_RESET', 'SMOKE_TEST']);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 @Injectable()
@@ -22,6 +24,13 @@ export class EmailService {
   constructor(@Inject(APP_CONFIG) private readonly cfg: AppConfig, private readonly prisma: PrismaService) {}
 
   async send(msg: EmailMessage, meta: EmailMeta): Promise<EmailResult> {
+    if (meta.userId && !CRITICAL_PURPOSES.has(meta.purpose)) {
+      const bounced = await this.prisma.emailLog.findFirst({ where: { userId: meta.userId, status: 'BOUNCED', errorCode: 'HARD_BOUNCE', toMasked: maskEmail(msg.to) }, select: { id: true } }).catch(() => null);
+      if (bounced) {
+        await this.prisma.emailLog.create({ data: { userId: meta.userId, purpose: meta.purpose, toMasked: maskEmail(msg.to), provider: this.cfg.emailProvider, status: 'FAILED', errorCode: 'SUPPRESSED_HARD_BOUNCE', attempts: 0 } }).catch(() => undefined);
+        return { accepted: false, attempts: 0, errorCode: 'SUPPRESSED_HARD_BOUNCE' };
+      }
+    }
     const result = this.cfg.emailProvider === 'console' ? this.sendConsole(msg) : await this.sendZeptoMail(msg);
     await this.prisma.emailLog
       .create({
@@ -71,6 +80,7 @@ export class EmailService {
         }
         lastCode = `HTTP_${res.status}`;
         if (res.status !== 429 && res.status < 500) break; // permanent rejection
+        const ra = Number(res.headers?.get?.('retry-after')); if (res.status === 429 && ra > 0) await sleep(Math.min(ra, 5) * 1000);
       } catch (e) {
         lastCode = (e as Error).name === 'TimeoutError' ? 'TIMEOUT' : 'NETWORK';
       }

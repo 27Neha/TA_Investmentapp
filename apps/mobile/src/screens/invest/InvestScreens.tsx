@@ -4,7 +4,7 @@ import { Linking, Text, View } from 'react-native';
 import { api, ApiError } from '../../api/client';
 import { Card, H2, NavRow, Pill, Small } from '../../components/cards';
 import { LoadGate, Row, useErrMsg, useLoad } from '../../components/kit';
-import { Body, Button, Field, Notice, Screen, Title } from '../../components/ui';
+import { Body, Button, Check, Field, Notice, Screen, Title } from '../../components/ui';
 import { inr } from '../../format';
 import { useI18n } from '../../i18n';
 import { TranslationKey } from '../../i18n/en';
@@ -32,15 +32,38 @@ export function GateReasons({ reasons }: { reasons: string[] }) {
   );
 }
 
+type Suitability = { status: 'CONSISTENT' | 'ABOVE_PROFILE' | 'ABOVE_CAPACITY' | 'UNKNOWN'; reasons: string[]; scheme: { level: string; asOf: string; source: string } | null; profile: { band: string } | null };
+const MISMATCH = (s?: Suitability | null) => s?.status === 'ABOVE_PROFILE' || s?.status === 'ABOVE_CAPACITY';
+/** Server-computed comparison of the user's risk profile with the scheme's published Riskometer level. Display only: it never recommends. */
+function useSuitability(schemeCode: string) {
+  return useLoad(() => api<Suitability>(`/v1/me/suitability/${encodeURIComponent(schemeCode)}`, authed));
+}
+export function SuitabilityCard({ s }: { s: Suitability }) {
+  const { t } = useI18n();
+  return (
+    <Card>
+      <H2>{t('suit.title')}</H2>
+      {s.scheme ? <Body>{t('suit.schemeLevel', { level: t(`suit.level.${s.scheme.level}` as TranslationKey) })}</Body> : null}
+      {s.profile ? <Body>{t('suit.profile', { band: t(`band.${s.profile.band}` as TranslationKey) })}</Body> : null}
+      <Notice tone={MISMATCH(s) ? 'error' : 'info'} text={t(`suit.status.${s.status}` as TranslationKey)} />
+      {s.status === 'UNKNOWN' ? s.reasons.map((r) => <Body key={r}>• {t(`invest.r.${r}` as TranslationKey)}</Body>) : null}
+      {s.scheme ? <Small>{t('suit.asOf', { date: s.scheme.asOf, source: s.scheme.source })}</Small> : null}
+      <Small>{t('suit.note')}</Small>
+    </Card>
+  );
+}
+
 /** Entry point shown on Fund Details: never hides the reason, never navigates when unavailable. */
 export function InvestEntry({ schemeCode, schemeName }: { schemeCode: string; schemeName: string }) {
   const { t } = useI18n();
   const nav = useNavigation<any>();
   const lump = useGate('LUMPSUM');
   const sip = useGate('SIP');
+  const suit = useSuitability(schemeCode);
   const reasons = Array.from(new Set([...(lump.data?.reasons ?? []), ...(sip.data?.reasons ?? [])]));
   return (
     <View style={{ gap: spacing.sm }}>
+      {suit.data ? <SuitabilityCard s={suit.data} /> : null}
       <Button label={t('invest.button')} disabled={!lump.data?.enabled} onPress={() => nav.navigate('Invest', { schemeCode, schemeName, kind: 'LUMPSUM' })} />
       <Button variant="secondary" label={t('invest.sipButton')} disabled={!sip.data?.enabled} onPress={() => nav.navigate('Invest', { schemeCode, schemeName, kind: 'SIP' })} />
       {!lump.loading && !sip.loading && reasons.length && !(lump.data?.enabled && sip.data?.enabled) ? <GateReasons reasons={reasons} /> : null}
@@ -55,6 +78,8 @@ export function InvestScreen() {
   const msg = useErrMsg();
   const { schemeCode, schemeName, kind } = (useRoute().params ?? {}) as { schemeCode: string; schemeName: string; kind: 'LUMPSUM' | 'SIP' };
   const gate = useGate(kind);
+  const suit = useSuitability(schemeCode);
+  const [ack, setAck] = useState(false);
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState<'UPI' | 'NETBANKING'>('UPI');
   const [freq, setFreq] = useState('MONTHLY');
@@ -72,17 +97,19 @@ export function InvestScreen() {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || new Date(start) <= new Date()) e.start = t('sip.startErr');
       const d = Number(day); if (!(d >= 1 && d <= 28)) e.day = t('sip.dayErr');
     }
+    if (suit.data?.status === 'UNKNOWN') return; // the server refuses too; the screen shows why
+    if (MISMATCH(suit.data) && !ack) e.ack = t('suit.ackRequired');
     setFe(e); if (Object.keys(e).length) return;
     setBusy(true); setErr(null);
     try {
       if (kind === 'LUMPSUM') {
-        const p = await api<any>('/v1/me/payments', { body: { schemeCode, schemeName, amount: amt, method, clientRequestId: idem.current }, ...authed });
+        const p = await api<any>('/v1/me/payments', { body: { schemeCode, schemeName, amount: amt, method, acknowledgeRisk: ack || undefined, clientRequestId: idem.current }, ...authed });
         await openUrl(p.redirectUrl); nav.replace('PaymentDetail', { id: p.id });
       } else {
-        await api('/v1/me/sips', { body: { schemeCode, schemeName, amount: amt, frequency: freq, dayOfMonth: Number(day), startDate: start, clientRequestId: idem.current }, ...authed });
+        await api('/v1/me/sips', { body: { schemeCode, schemeName, amount: amt, frequency: freq, dayOfMonth: Number(day), startDate: start, acknowledgeRisk: ack || undefined, clientRequestId: idem.current }, ...authed });
         nav.replace('Mandates', { justCreatedSip: true });
       }
-    } catch (x) { setErr(x instanceof ApiError && x.reasons?.length ? x.reasons.map((r) => t(`invest.r.${r}` as TranslationKey)).join(' ') : msg(x)); } finally { setBusy(false); }
+    } catch (x) { if (x instanceof ApiError && x.status === 409 && MISMATCH(suit.data)) { setFe({ ack: t('suit.ackRequired') }); setBusy(false); return; } setErr(x instanceof ApiError && x.reasons?.length ? x.reasons.map((r) => t(`invest.r.${r}` as TranslationKey)).join(' ') : msg(x)); } finally { setBusy(false); }
   };
   return (
     <Screen>
@@ -90,6 +117,8 @@ export function InvestScreen() {
       <Body>{schemeName}</Body>
       <LoadGate loading={gate.loading} error={gate.error} onRetry={gate.reload}>
         {gate.data && !gate.data.enabled ? <GateReasons reasons={gate.data.reasons} /> : gate.data ? (<>
+          {suit.data ? <SuitabilityCard s={suit.data} /> : null}
+          {MISMATCH(suit.data) ? (<><Check label={t('suit.ack')} value={ack} onChange={setAck} />{fe.ack ? <Notice tone="error" text={fe.ack} /> : null}</>) : null}
           <Notice text={kind === 'SIP' ? t('sip.note') : t('invest.review')} />
           <Field label={t('invest.amount')} value={amount} onChangeText={setAmount} keyboardType="numeric" error={fe.amount} />
           {kind === 'LUMPSUM' ? (
@@ -104,7 +133,7 @@ export function InvestScreen() {
             <Field label={t('sip.start')} value={start} onChangeText={setStart} placeholder="2027-01-05" error={fe.start} />
           </>)}
           {err ? <Notice tone="error" text={err} /> : null}
-          <Button label={kind === 'SIP' ? t('sip.create') : t('invest.pay')} loading={busy} onPress={submit} />
+          <Button label={kind === 'SIP' ? t('sip.create') : t('invest.pay')} loading={busy} disabled={suit.loading || suit.data?.status === 'UNKNOWN'} onPress={submit} />
           <Small>{t('invest.disclosure')}</Small>
         </>) : null}
       </LoadGate>

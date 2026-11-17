@@ -14,7 +14,7 @@ d('support tickets (local-first, desk-independent)', () => {
   const http = () => request(app.getHttpServer());
   beforeAll(async () => { ({ app, email, prisma } = await makeApp({ supportPort: desk, store })); svc = app.get(SupportService); });
   afterAll(async () => { await app.close(); });
-  beforeEach(async () => { await resetDb(prisma); email.sent = []; desk.connected = true; desk.failCreate = false; desk.followUpVerified = false; desk.withWebhook = true; desk.created = []; store.files.clear(); store.fail = false; });
+  beforeEach(async () => { await resetDb(prisma); email.sent = []; desk.connected = true; desk.failCreate = false; desk.followUpVerified = false; desk.withWebhook = true; desk.pull = true; desk.states = {}; desk.threads = {}; desk.created = []; store.files.clear(); store.fail = false; });
 
   async function user() {
     const e = `sup${++n}@example.com`;
@@ -198,7 +198,8 @@ d('support tickets (local-first, desk-independent)', () => {
     const ext = (await prisma.supportTicket.findUniqueOrThrow({ where: { id: t.id } })).externalId!;
     desk.withWebhook = false; // adapter without a verified webhook: endpoint stays dark
     const hook = (events: any[], sig?: string) => { const raw = JSON.stringify({ events }); return http().post('/v1/webhooks/support').set('Content-Type', 'application/json').set('x-test-signature', sig ?? signDesk(raw)).send(raw); };
-    desk.withWebhook = true;
+    await svc.runProbe(); await hook([], 'bad').expect(404); // probe says: webhook not proven -> endpoint stays dark
+    desk.withWebhook = true; await svc.runProbe();
     await hook([], 'bad').expect(401);
     const reply = { eventId: 'ev1', externalTicketId: ext, type: 'AGENT_REPLY', threadId: 'TH1', authorName: 'Priya', body: 'We are checking.' };
     expect((await hook([reply]).expect(200)).body.results).toEqual(['APPLIED']);
@@ -211,6 +212,23 @@ d('support tickets (local-first, desk-independent)', () => {
     await as(u.t).post(`/v1/me/support/tickets/${t.id}/messages`, { body: 'thanks' }).expect(409); // closed
     expect((await hook([{ eventId: 'ev3', externalTicketId: 'Z-nope', type: 'AGENT_REPLY', body: 'x' }]).expect(200)).body.results).toEqual(['UNKNOWN_REFERENCE']);
     desk.connected = false; await http().post('/v1/webhooks/support').send('{}').expect(404);
+  });
+
+  it('pull sync: status changes and agent replies arrive once, only when the probe proved read access, and never from other tickets', async () => {
+    const u = await user(); const t = await mk(u); const t2 = await mk(u); await svc.processOutbox();
+    const ext = (await prisma.supportTicket.findUniqueOrThrow({ where: { id: t.id } })).externalId!; const ext2 = (await prisma.supportTicket.findUniqueOrThrow({ where: { id: t2.id } })).externalId!;
+    desk.states[ext] = { status: 'ON_HOLD', modifiedTime: 'm1' }; desk.threads[ext] = [{ threadId: 'TH9', authorName: 'Priya', body: 'Please share the screenshot.', occurredAt: new Date() }];
+    desk.pull = false; await svc.runProbe(); expect(await svc.syncFromDesk()).toMatchObject({ skipped: 'PULL_NOT_VERIFIED' }); // not proven: nothing is read or changed
+    expect((await prisma.supportTicket.findUniqueOrThrow({ where: { id: t.id } })).status).toBe('OPEN');
+    desk.pull = true; await svc.runProbe();
+    expect((await svc.syncFromDesk()).applied).toBe(2);
+    const g = (await as(u.t).get(`/v1/me/support/tickets/${t.id}`).expect(200)).body;
+    expect(g.status).toBe('ON_HOLD'); expect(g.messages.filter((m: any) => m.authorType === 'AGENT').map((m: any) => m.body)).toEqual(['Please share the screenshot.']);
+    expect((await as(u.t).get(`/v1/me/support/tickets/${t2.id}`).expect(200)).body.status).toBe('OPEN'); expect(ext2).not.toBe(ext);
+    expect((await svc.syncFromDesk()).applied).toBe(0); // second run: nothing new, no duplicate message or notification
+    expect(await prisma.notification.count({ where: { userId: u.id, title: 'New reply from support' } })).toBe(1);
+    desk.states[ext] = { status: 'CLOSED', modifiedTime: 'm2' }; await svc.syncFromDesk();
+    expect((await as(u.t).get(`/v1/me/support/tickets/${t.id}`).expect(200)).body.status).toBe('CLOSED');
   });
 
   it('isolation: other users cannot read or write your ticket', async () => {

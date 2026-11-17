@@ -42,10 +42,10 @@ export class SupportWebhookController {
   constructor(@Inject(SUPPORT_PORT) private readonly desk: SupportPort, private readonly s: SupportService) {}
   @Post('support') @HttpCode(200)
   async receive(@Req() req: Request & { rawBody?: Buffer }, @Headers() headers: Record<string, string>) {
-    if (!this.desk.isConnected() || !this.desk.verifyAndNormalizeWebhook) throw new NotFoundException();
+    if (!this.desk.isConnected() || !this.desk.verifyAndNormalizeWebhook || !this.s.webhookEnabled()) throw new NotFoundException();
     if (!req.rawBody) throw new BadRequestException('Raw body unavailable.');
     let events;
-    try { events = this.desk.verifyAndNormalizeWebhook(req.rawBody, headers); }
+    try { events = await this.desk.verifyAndNormalizeWebhook(req.rawBody, headers); }
     catch (e) { if (e instanceof SupportWebhookRejectedError) throw new UnauthorizedException(); throw new BadRequestException(); }
     const hash = createHash('sha256').update(req.rawBody).digest('hex'); const results: string[] = [];
     for (const e of events) results.push((await this.s.applyInbound(e, hash)).outcome);

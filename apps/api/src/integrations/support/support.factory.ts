@@ -19,5 +19,6 @@ export function createSupportPort(env: NodeJS.ProcessEnv, isProd: boolean): Supp
   return new ZohoDeskAdapter({
     orgId: env.ZOHO_DESK_ORG_ID!, clientId: env.ZOHO_DESK_CLIENT_ID!, clientSecret: env.ZOHO_DESK_CLIENT_SECRET!, refreshToken: env.ZOHO_DESK_REFRESH_TOKEN!,
     accountsUrl: env.ZOHO_DESK_ACCOUNTS_URL!.replace(/\/$/, ''), apiUrl: env.ZOHO_DESK_API_URL!.replace(/\/$/, ''), departmentId: env.ZOHO_DESK_DEPARTMENT_ID!,
+    webhookId: env.ZOHO_DESK_WEBHOOK_ID || undefined, webhookEnabled: env.ZOHO_DESK_WEBHOOK_ENABLED === 'true',
   });
 }
