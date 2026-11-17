@@ -49,7 +49,9 @@ export async function api<T = any>(path: string, opts: { method?: string; body?:
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     const m = Array.isArray(json.message) ? json.message[0] : json.message;
-    throw new ApiError(res.status, m ?? 'Request failed', typeof json.code === 'string' ? json.code : undefined, Array.isArray(json.reasons) ? json.reasons.filter((x: unknown) => typeof x === 'string') : undefined);
+    // Nest answers an unregistered route with 404 "Cannot POST /path" and no code: the app is talking to a backend that lacks this endpoint (stale or wrong code).
+    const routeMissing = res.status === 404 && typeof m === 'string' && /^Cannot (GET|POST|PUT|PATCH|DELETE) /.test(m) && typeof json.code !== 'string';
+    throw new ApiError(res.status, m ?? 'Request failed', routeMissing ? 'ROUTE_NOT_FOUND' : typeof json.code === 'string' ? json.code : undefined, Array.isArray(json.reasons) ? json.reasons.filter((x: unknown) => typeof x === 'string') : undefined);
   }
   return json as T;
 }

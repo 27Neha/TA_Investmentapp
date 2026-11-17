@@ -8,7 +8,7 @@ import { asDisclosure, consentFromReader, continueState, Disclosure, fieldError,
 import { colors, MIN_TOUCH, spacing, type } from '../../theme/tokens';
 
 type Docs = { terms: Disclosure; privacy: Disclosure };
-type DocsState = { status: 'loading' } | { status: 'ready'; docs: Docs } | { status: 'failed'; reason: 'network' | 'unavailable' | 'error' };
+type DocsState = { status: 'loading' } | { status: 'ready'; docs: Docs } | { status: 'failed'; reason: 'network' | 'unavailable' | 'error' | 'stale' };
 const EMPTY: SignupForm = { fullName: '', email: '', mobile: '', dob: '', password: '', confirm: '' };
 
 export default function SignupScreen({ navigation, route }: any) {
@@ -68,12 +68,12 @@ export default function SignupScreen({ navigation, route }: any) {
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0; const code = e instanceof ApiError ? e.code : undefined;
       const key = signupErrorKey(status, code);
-      setErr(key ? t(key as TranslationKey) : (e as Error).message);
+      setErr(key ? t(key as TranslationKey, { url: BASE }) : (e as Error).message);
     } finally { setBusy(false); }
   };
 
   const open = (kind: 'TERMS' | 'PRIVACY') => navigation.navigate('LegalDoc', { kind, from: 'signup' });
-  const docsMsg = state.status === 'failed' ? (state.reason === 'network' ? t('signup.docsNetwork') : state.reason === 'unavailable' ? t('signup.legalUnavailable') : t('signup.docsError')) : null;
+  const docsMsg = state.status === 'failed' ? (state.reason === 'stale' ? t('common.error.staleBackend', { url: BASE }) : state.reason === 'network' ? t('signup.docsNetwork') : state.reason === 'unavailable' ? t('signup.legalUnavailable') : t('signup.docsError')) : null;
 
   return (
     <Screen>

@@ -13,3 +13,8 @@ Branch `feat/phase-2-hardening`. Not tested on a physical device or emulator: th
 
 ## Legal content still requiring approval
 No approved Terms or Privacy text exists in this repository. The draft describes what the app does today and leaves every contractual clause as `[LEGAL TO SUPPLY …]`. It makes no ARN or registration claims. To go live, counsel supplies the text, then a reviewed row is inserted (`reviewedBy` set) as a new version; production signup stays blocked until then. Translations of these documents stay English until human review.
+
+## "Cannot POST /v1/auth/login" (stale backend)
+The mobile app calls `POST {EXPO_PUBLIC_API_URL}/v1/auth/login`. This branch registers exactly that route (`@Controller('v1/auth')` + `@Post('login')`, no global prefix); `main` contains no auth code at all. "Cannot POST /path" is Nest's answer for an unregistered route, so the process listening on port 3000 was not running this branch's code (for example an older checkout or `main`, or `npm start` on an old `apps/api/dist` that was never rebuilt). The same stale backend also explains the empty legal documents and the disabled Continue button, because the documents endpoint was missing too.
+
+Added: the app now recognises this case (HTTP 404 "Cannot …" with no error code) on login, signup and document loading and shows the address it is calling with the restart instruction; `npm run check:backend [url]` (repo root) checks health, login, signup and documents routes without sending credentials; `apps/api/test/routes.int.spec.ts` guards the routes; login shows inline validation instead of a silently disabled button.

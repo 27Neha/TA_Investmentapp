@@ -10,7 +10,7 @@ export type SignupField = keyof SignupForm;
 export type FieldErrors = Partial<Record<SignupField, string>>;
 export const SIGNUP_FIELDS: SignupField[] = ['fullName', 'email', 'mobile', 'dob', 'password', 'confirm'];
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** Same clean-up the server applies before checking (it strips everything but digits and "+"). */
 export const cleanMobile = (s: string) => s.replace(/[^\d+]/g, '');
@@ -62,6 +62,7 @@ export function signupPayload(f: SignupForm, o: { locale: string; termsVersion: 
 /** Maps a failed API call to a friendly i18n key; null means "show the server's own message" (it is already user-facing). */
 export function signupErrorKey(status: number, code?: string): string | null {
   if (status === 0) return 'signup.err.server';
+  if (code === 'ROUTE_NOT_FOUND') return 'common.error.staleBackend';
   if (code === 'LEGAL_NOT_APPROVED') return 'signup.err.legalNotApproved';
   if (status === 429) return 'signup.err.rate';
   if (status >= 500) return 'signup.err.generic';
@@ -69,8 +70,9 @@ export function signupErrorKey(status: number, code?: string): string | null {
 }
 
 /** What to show when the Terms/Privacy documents cannot be loaded. */
-export function legalLoadFailure(status: number, code?: string): 'network' | 'unavailable' | 'error' {
+export function legalLoadFailure(status: number, code?: string): 'network' | 'unavailable' | 'error' | 'stale' {
   if (status === 0) return 'network';
+  if (code === 'ROUTE_NOT_FOUND') return 'stale';
   if (status === 404 || code === 'LEGAL_NOT_AVAILABLE') return 'unavailable';
   return 'error';
 }
