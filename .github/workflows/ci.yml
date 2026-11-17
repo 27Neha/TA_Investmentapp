@@ -1,0 +1,123 @@
+name: CI
+
+# Safety: no secrets, no Supabase, no production data. The only database is a disposable
+# PostgreSQL service container that exists for the lifetime of the job.
+on:
+  pull_request:
+  push:
+    branches: [main, 'feat/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (lint, build, drift check, unit + integration tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Throwaway credentials for a container that only lives inside this job. Not a real secret.
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ta_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ci -d ta_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ta_test
+      DIRECT_URL: postgresql://ci:ci@localhost:5432/ta_test
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/ta_test
+      SHADOW_DATABASE_URL: postgresql://ci:ci@localhost:5432/ta_shadow
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint:api
+      - name: Generate Prisma client
+        run: npm run prisma:generate -w apps/api
+      - name: Build
+        run: npm run build -w apps/api
+      - name: Create empty shadow database
+        run: PGPASSWORD=ci psql -h localhost -U ci -d ta_test -c 'CREATE DATABASE ta_shadow'
+      - name: Apply migrations to the disposable database
+        run: npx prisma migrate deploy
+        working-directory: apps/api
+      - name: Prisma drift check (migrations vs schema.prisma)
+        run: npm run db:drift -w apps/api
+      - name: Unit tests
+        run: npm test -w apps/api
+      - name: Integration tests (real PostgreSQL, disposable)
+        run: npm run test:int -w apps/api
+
+  mobile:
+    name: Mobile (lint, typecheck, i18n, Android bundle)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint:mobile
+      - name: Typecheck
+        run: npm run typecheck -w apps/mobile
+      - name: Translation integrity
+        run: npm run i18n:check -w apps/mobile
+      - name: Android JS bundle export (not an APK)
+        run: npm run export:android -w apps/mobile
+        env:
+          EXPO_PUBLIC_API_URL: https://ci.invalid
+
+  admin:
+    name: Admin (lint, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint:admin
+      - name: Build
+        run: npm run build -w apps/admin
+        env:
+          API_INTERNAL_URL: http://localhost:3000
+
+  docker:
+    name: API Docker image build (no push)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - run: docker build -f apps/api/Dockerfile -t techartha-api:ci .
+
+  audit:
+    name: npm audit (report only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Audit production dependencies (does not fail the build)
+        run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true

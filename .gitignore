@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.next/
+.expo/
+build/
+coverage/
+*.log
+.DS_Store
+# secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.jks
+service-account*.json
+
+# build/tooling artifacts
+*.tsbuildinfo
+.env.local
+.idea/
+.vscode/
+# repository transfer bundles
+*.bundle
+apps/mobile/.claude/

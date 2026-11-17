@@ -1,0 +1,904 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  INVESTOR
+  SUPPORT
+  OPERATIONS
+  COMPLIANCE
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OtpPurpose {
+  EMAIL_VERIFY
+  MOBILE_VERIFY
+  PASSWORD_RESET
+}
+
+enum OtpChannel {
+  EMAIL
+  SMS
+  WHATSAPP
+}
+
+model User {
+  id               String     @id @default(uuid())
+  email            String     @unique
+  emailVerifiedAt  DateTime?
+  mobile           String?    @unique
+  mobileVerifiedAt DateTime?
+  fullName         String
+  dateOfBirth      DateTime?  @db.Date
+  passwordHash     String
+  role             Role       @default(INVESTOR)
+  status           UserStatus @default(ACTIVE)
+  locale           String     @default("en")
+  failedLogins     Int        @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  refreshTokens RefreshToken[]
+  otpChallenges OtpChallenge[]
+  consents      ConsentRecord[]
+  auditEvents   AdminAuditEvent[] @relation("AuditActor")
+  profile       InvestorProfile?
+  address       Address?
+  goals         Goal[]
+  riskDraft     RiskDraft?
+  contributions GoalContribution[]
+  watchlist     WatchlistItem[]
+  searches      SearchHistory[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  accountRequests AccountRequest[]
+  transactions  Transaction[]
+  snapshots     PortfolioSnapshot[]
+  learnProgress LearnProgress[]
+  learnDays     LearnDay[]
+  familyMember  FamilyMember?
+  ownedFamilies FamilyGroup[] @relation("FamilyOwner")
+  sentInvites   FamilyInvite[] @relation("InviteSender")
+  bankAccount   BankAccount?
+  nominees      Nominee[]
+  kyc           KycRecord?
+  riskAssessments RiskAssessment[]
+  notificationPrefs NotificationPreference?
+  guardianLink  GuardianLink?
+  guardianMinorLinks  GuardianLinkage[] @relation("GuardianMinor")
+  guardianOfLinks     GuardianLinkage[] @relation("GuardianGuardian")
+  guardianRevocations GuardianLinkage[] @relation("GuardianRevoker")
+  guardianAuditEvents GuardianAuditEvent[]
+  kycConsents KycConsent[]
+  kycAttempts KycVerificationAttempt[]
+  supportTickets      SupportTicket[] @relation("TicketOwner")
+  supportTicketsAbout SupportTicket[] @relation("TicketMinor")
+  orders              InvestmentOrder[]
+  payments            Payment[]
+  mandates            Mandate[]
+  sipPlans            SipPlan[]
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  familyId   String
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  replacedBy String?
+  userAgent  String?
+  ipHash     String?
+  createdAt  DateTime  @default(now())
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// OTPs are never stored raw: only an HMAC of (challengeId + code).
+model OtpChallenge {
+  id          String     @id @default(uuid())
+  userId      String?
+  purpose     OtpPurpose
+  channel     OtpChannel
+  destination String // normalised email / E.164 mobile
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  consumedAt  DateTime?
+  resetUsedAt DateTime?
+  resendAfter DateTime
+  createdAt   DateTime   @default(now())
+  user        User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([destination, purpose, createdAt])
+  @@index([userId])
+}
+
+model DisclosureVersion {
+  id            String   @id @default(uuid())
+  kind          String // TERMS | PRIVACY | RISK | DISTRIBUTOR
+  version       String
+  locale        String
+  title         String
+  body          String
+  effectiveFrom DateTime
+  reviewedBy    String? // human reviewer for legal text
+  createdAt     DateTime @default(now())
+
+  consents ConsentRecord[]
+
+  @@unique([kind, version, locale])
+}
+
+model ConsentRecord {
+  id           String            @id @default(uuid())
+  userId       String
+  disclosureId String
+  accepted     Boolean
+  locale       String
+  ipHash       String?
+  userAgent    String?
+  createdAt    DateTime          @default(now())
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  disclosure   DisclosureVersion @relation(fields: [disclosureId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(false)
+  description String?
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
+
+model ProviderConfig {
+  key           String    @id // cybrilla | zeptomail | interakt | mtalkz | kyc | push
+  enabled       Boolean   @default(false)
+  environment   String    @default("sandbox")
+  credentialRef String? // name of secret in secret manager, never the secret
+  healthStatus  String    @default("UNKNOWN")
+  lastSuccessAt DateTime?
+  updatedAt     DateTime  @updatedAt
+}
+
+model AdminAuditEvent {
+  id         String   @id @default(uuid())
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  ipHash     String?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([entityType, entityId])
+}
+
+enum EmailStatus {
+  ACCEPTED
+  FAILED
+  DELIVERED
+  BOUNCED
+}
+
+// API acceptance is NOT inbox delivery: status moves to DELIVERED/BOUNCED only via provider callbacks.
+model EmailLog {
+  id                String      @id @default(uuid())
+  userId            String?
+  purpose           String
+  toMasked          String
+  provider          String
+  providerMessageId String?
+  status            EmailStatus
+  errorCode         String?
+  attempts          Int         @default(1)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([providerMessageId])
+  @@index([userId, createdAt])
+}
+
+enum KycStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PENDING_PROVIDER // details captured locally; NOT verified. Only a verified provider callback may set VERIFIED.
+  VERIFIED
+  REJECTED
+  MANUAL_REVIEW // appended last: PostgreSQL enum values can only be appended. Provider verified a document but details differ.
+  EXPIRED
+}
+
+enum BankStatus {
+  UNVERIFIED
+  VERIFIED // only settable by a provider/penny-drop integration (not built)
+  REJECTED
+}
+
+enum GuardianStatus {
+  PENDING_VERIFICATION
+  VERIFIED // only settable by an operations/compliance process (not built)
+  REJECTED
+}
+
+// Sensitive identifiers (PAN, account number) are AES-256-GCM encrypted at the application layer; only masked tails are stored in clear.
+model InvestorProfile {
+  userId      String    @id
+  gender      String?
+  occupation  String?
+  incomeBand  String?
+  panEnc      String?
+  panLast4    String?
+  taxResidentIndia Boolean?
+  pepDeclared Boolean?
+  nomineeOptOut Boolean @default(false)
+  confirmedAt DateTime? // user confirmed the onboarding review (does NOT imply KYC verified)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Address {
+  userId    String   @id
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String   @default("IN")
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model BankAccount {
+  userId      String     @id
+  holderName  String
+  accountEnc  String
+  accountLast4 String
+  ifsc        String
+  accountType String
+  status      BankStatus @default(UNVERIFIED)
+  updatedAt   DateTime   @updatedAt
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Nominee {
+  id           String   @id @default(uuid())
+  userId       String
+  name         String
+  relationship String
+  dateOfBirth  DateTime @db.Date
+  sharePercent Int
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model KycRecord {
+  userId      String    @id
+  status      KycStatus @default(NOT_STARTED)
+  submittedAt DateTime?
+  providerRef String?
+  note        String?
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RiskAssessment {
+  id        String   @id @default(uuid())
+  userId    String
+  version   String
+  answers   Json
+  score     Int
+  band      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model NotificationPreference {
+  userId         String   @id
+  emailMarketing Boolean  @default(false)
+  pushEnabled    Boolean  @default(true)
+  whatsappUpdates Boolean @default(false)
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Minors cannot complete KYC/onboarding until a guardian is verified. Verification workflow is Phase 2 (operations-driven).
+model GuardianLink {
+  userId       String         @id
+  guardianName String
+  relationship String
+  guardianMobile String
+  status       GuardianStatus @default(PENDING_VERIFICATION)
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id                String   @id @default(uuid())
+  userId            String
+  name              String
+  type              String
+  targetAmount      Decimal  @db.Decimal(14, 2)
+  currentSavings    Decimal  @default(0) @db.Decimal(14, 2)
+  monthlyContribution Decimal @default(0) @db.Decimal(14, 2)
+  expectedReturnPct Decimal  @db.Decimal(5, 2)
+  targetDate        DateTime @db.Date
+  inflationPct      Decimal? @db.Decimal(5, 2)
+  pausedAt          DateTime?
+  status            String   @default("ACTIVE") // ACTIVE | PAUSED | ARCHIVED
+  contributions     GoalContribution[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+model ContentItem {
+  id          String    @id @default(uuid())
+  slug        String    @unique
+  title       String
+  summary     String
+  body        String
+  category    String
+  locale      String    @default("en")
+  readMinutes Int       @default(3)
+  publishedAt DateTime?
+  reviewedBy  String? // human reviewer; null => shown as DRAFT in the app
+  createdAt   DateTime  @default(now())
+
+  @@index([category, publishedAt])
+}
+
+model RiskDraft {
+  userId    String   @id
+  version   String
+  answers   Json
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model GoalContribution {
+  id            String   @id @default(uuid())
+  goalId        String
+  userId        String
+  amount        Decimal  @db.Decimal(14, 2)
+  contributedOn DateTime @db.Date
+  note          String?
+  createdAt     DateTime @default(now())
+  goal          Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([goalId, contributedOn])
+  @@index([userId])
+}
+
+model WatchlistItem {
+  id         String   @id @default(uuid())
+  userId     String
+  schemeCode String
+  schemeName String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, schemeCode])
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String
+  query     String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model FamilyGroup {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+  owner     User     @relation("FamilyOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   FamilyMember[]
+  invites   FamilyInvite[]
+}
+
+model FamilyMember {
+  id           String   @id @default(uuid())
+  groupId      String
+  userId       String   @unique
+  role         String // OWNER | ADULT | GUARDIAN (DEPENDENT is not enabled until legal approval)
+  shareGoals   Boolean  @default(false)
+  shareHoldings Boolean @default(false)
+  joinedAt     DateTime @default(now())
+  group        FamilyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+}
+
+model FamilyInvite {
+  id          String   @id @default(uuid())
+  groupId     String
+  invitedById String
+  email       String
+  role        String
+  tokenHash   String   @unique
+  status      String   @default("PENDING") // PENDING | ACCEPTED | DECLINED | REVOKED | EXPIRED
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  group       FamilyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedBy   User     @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([groupId, status])
+  @@index([email])
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+model AccountRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  kind      String // DEACTIVATE | DELETE
+  status    String   @default("REQUESTED")
+  reason    String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+}
+
+/// Written ONLY by a verified provider integration. Nothing in the app creates rows here.
+model Transaction {
+  id            String   @id @default(uuid())
+  userId        String
+  providerRef   String?  @unique
+  type          String
+  status        String
+  amount        Decimal  @db.Decimal(14, 2)
+  schemeCode    String?
+  schemeName    String?
+  failureReason String?
+  occurredAt    DateTime
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, occurredAt])
+}
+
+/// Written ONLY from provider-verified holdings data.
+model PortfolioSnapshot {
+  id           String   @id @default(uuid())
+  userId       String
+  asOf         DateTime
+  invested     Decimal  @db.Decimal(16, 2)
+  currentValue Decimal  @db.Decimal(16, 2)
+  source       String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, asOf])
+}
+
+model LearnProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  activityKey String
+  score       Int
+  total       Int
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, activityKey])
+}
+
+model LearnDay {
+  userId String
+  day    DateTime @db.Date
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+}
+
+// ===================== Platform core (migration 20261119000000_platform_core) =====================
+// Status columns are TEXT guarded by CHECK constraints in the migration SQL (Prisma cannot express CHECKs).
+// "…Key" columns are nullable UNIQUE columns that replace partial unique indexes (Prisma cannot express those):
+// the key holds a value only while the row is "open"/"live" and is NULL otherwise, so PostgreSQL enforces the same invariant.
+
+/// A guardian is a normal verified User. Nothing is granted implicitly: no permission rows = no access.
+model GuardianLinkage {
+  id                  String    @id @default(uuid())
+  minorUserId         String
+  guardianUserId      String?
+  guardianContactHash String
+  relationship        String
+  status              String    @default("INVITED")
+  consentVersionId    String?
+  consentedAt         DateTime?
+  invitedAt           DateTime  @default(now())
+  activatedAt         DateTime?
+  revokedAt           DateTime?
+  revokedByUserId     String?
+  revokeReason        String?
+  /// minorUserId:guardianContactHash while INVITED/ACTIVE, else NULL (one open link per pair)
+  activeKey           String?   @unique
+  createdAt           DateTime  @default(now())
+
+  minor       User                 @relation("GuardianMinor", fields: [minorUserId], references: [id], onDelete: Restrict)
+  guardian    User?                @relation("GuardianGuardian", fields: [guardianUserId], references: [id], onDelete: Restrict)
+  revokedBy   User?                @relation("GuardianRevoker", fields: [revokedByUserId], references: [id], onDelete: Restrict)
+  permissions GuardianPermission[]
+  audit       GuardianAuditEvent[]
+  orders      InvestmentOrder[]
+
+  @@index([minorUserId, status])
+  @@index([guardianUserId, status])
+}
+
+model GuardianPermission {
+  id        String          @id @default(uuid())
+  linkageId String
+  scope     String
+  grantedAt DateTime        @default(now())
+  revokedAt DateTime?
+  /// linkageId:scope while not revoked, else NULL
+  liveKey   String?         @unique
+  linkage   GuardianLinkage @relation(fields: [linkageId], references: [id], onDelete: Restrict)
+}
+
+/// Append-only (trigger).
+model GuardianAuditEvent {
+  id          String          @id @default(uuid())
+  linkageId   String
+  actorUserId String?
+  action      String
+  detail      Json?
+  createdAt   DateTime        @default(now())
+  linkage     GuardianLinkage @relation(fields: [linkageId], references: [id], onDelete: Restrict)
+  actor       User?           @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([linkageId, createdAt])
+}
+
+model SupportTicket {
+  id                String    @id @default(uuid())
+  userId            String?
+  onBehalfOfMinorId String?
+  category          String
+  priority          String    @default("MEDIUM")
+  status            String    @default("SYNC_PENDING")
+  subject           String
+  channel           String    @default("APP")
+  /// Client-supplied idempotency key so a retried "create ticket" never duplicates
+  clientRequestId   String?
+  externalProvider  String?
+  externalId        String?
+  externalNumber    String?
+  assigneeName      String?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user     User?            @relation("TicketOwner", fields: [userId], references: [id], onDelete: SetNull)
+  minor    User?            @relation("TicketMinor", fields: [onBehalfOfMinorId], references: [id], onDelete: SetNull)
+  messages SupportMessage[]
+
+  @@unique([externalProvider, externalId])
+  @@unique([userId, clientRequestId])
+  @@index([userId, updatedAt])
+  @@index([status, updatedAt])
+}
+
+model SupportMessage {
+  id               String              @id @default(uuid())
+  ticketId         String
+  direction        String
+  authorType       String
+  authorName       String?
+  body             String
+  externalThreadId String?
+  channel          String              @default("APP")
+  occurredAt       DateTime
+  createdAt        DateTime            @default(now())
+  ticket           SupportTicket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  attachments      SupportAttachment[]
+
+  @@unique([ticketId, externalThreadId])
+  @@index([ticketId, occurredAt])
+}
+
+/// Metadata only. Bytes live in a PRIVATE Supabase Storage bucket (storageKey); never public, access via short-lived signed URLs.
+model SupportAttachment {
+  id         String         @id @default(uuid())
+  messageId  String
+  fileName   String
+  mime       String
+  sizeBytes  Int
+  sha256     String
+  storageKey String?        @unique
+  status     String         @default("PENDING_UPLOAD")
+  externalId String?
+  createdAt  DateTime       @default(now())
+  message    SupportMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+model ProviderWebhookEvent {
+  id             String         @id @default(uuid())
+  provider       String
+  eventId        String
+  eventType      String
+  signatureValid Boolean
+  payloadHash    String
+  payload        Json?
+  receivedAt     DateTime       @default(now())
+  processedAt    DateTime?
+  outcome        String?
+  error          String?
+  paymentEvents  PaymentEvent[]
+  mandateEvents  MandateEvent[]
+
+  @@unique([provider, eventId])
+  @@index([processedAt, receivedAt])
+}
+
+model OutboxJob {
+  id             String    @id @default(uuid())
+  kind           String
+  payload        Json
+  idempotencyKey String
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  nextRunAt      DateTime  @default(now())
+  lastError      String?
+  createdAt      DateTime  @default(now())
+  doneAt         DateTime?
+
+  @@unique([kind, idempotencyKey])
+  @@index([status, nextRunAt])
+}
+
+model InvestmentOrder {
+  id                      String           @id @default(uuid())
+  userId                  String
+  actingGuardianLinkageId String?
+  schemeCode              String
+  schemeName              String
+  kind                    String
+  amount                  Decimal          @db.Decimal(14, 2)
+  idempotencyKey          String
+  createdAt               DateTime         @default(now())
+  user                    User             @relation(fields: [userId], references: [id], onDelete: Restrict)
+  guardianLinkage         GuardianLinkage? @relation(fields: [actingGuardianLinkageId], references: [id], onDelete: Restrict)
+  payments                Payment[]
+
+  @@unique([userId, idempotencyKey])
+}
+
+/// providerPaymentRef/providerConfirmedAt stay NULL until a VERIFIED provider event supplies them; SUCCESS is impossible without both (CHECK).
+model Payment {
+  id                  String          @id @default(uuid())
+  orderId             String
+  userId              String
+  attempt             Int             @default(1)
+  status              String          @default("CREATED")
+  method              String?
+  amount              Decimal         @db.Decimal(14, 2)
+  idempotencyKey      String
+  providerPaymentRef  String?         @unique
+  providerOrderRef    String?
+  providerConfirmedAt DateTime?
+  failureCode         String?
+  failureReason       String?
+  /// orderId while the payment is open (CREATED/INITIATED/PROCESSING/PENDING), else NULL: one open payment per order
+  openKey             String?         @unique
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  order               InvestmentOrder @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  user                User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  events              PaymentEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([status, updatedAt])
+}
+
+/// Append-only (trigger).
+model PaymentEvent {
+  id             String                @id @default(uuid())
+  paymentId      String
+  fromStatus     String?
+  toStatus       String
+  eventType      String
+  source         String
+  webhookEventId String?
+  reason         String?
+  createdAt      DateTime              @default(now())
+  payment        Payment               @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  webhookEvent   ProviderWebhookEvent? @relation(fields: [webhookEventId], references: [id], onDelete: Restrict)
+
+  @@index([paymentId, createdAt])
+}
+
+model Mandate {
+  id                       String         @id @default(uuid())
+  userId                   String
+  bankAccountId            String?
+  status                   String         @default("CREATED")
+  maxAmount                Decimal        @db.Decimal(14, 2)
+  idempotencyKey           String
+  providerMandateRef       String?        @unique
+  authorizationUrlIssuedAt DateTime?
+  providerConfirmedAt      DateTime?
+  failureCode              String?
+  failureReason            String?
+  cancelRequestedAt        DateTime?
+  cancelledAt              DateTime?
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  user                     User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  events                   MandateEvent[]
+  sipPlans                 SipPlan[]
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+}
+
+/// Append-only (trigger).
+model MandateEvent {
+  id             String                @id @default(uuid())
+  mandateId      String
+  fromStatus     String?
+  toStatus       String
+  eventType      String
+  source         String
+  webhookEventId String?
+  reason         String?
+  createdAt      DateTime              @default(now())
+  mandate        Mandate               @relation(fields: [mandateId], references: [id], onDelete: Restrict)
+  webhookEvent   ProviderWebhookEvent? @relation(fields: [webhookEventId], references: [id], onDelete: Restrict)
+
+  @@index([mandateId, createdAt])
+}
+
+model SipPlan {
+  id             String    @id @default(uuid())
+  userId         String
+  mandateId      String?
+  schemeCode     String
+  schemeName     String
+  amount         Decimal   @db.Decimal(14, 2)
+  frequency      String
+  dayOfMonth     Int?
+  startDate      DateTime  @db.Date
+  endDate        DateTime? @db.Date
+  status         String    @default("DRAFT")
+  providerSipRef String?
+  idempotencyKey String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  mandate        Mandate?  @relation(fields: [mandateId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt])
+  @@index([mandateId])
+}
+
+// ===================== KYC verification (migration 20261120000000_kyc_verification) =====================
+/// Explicit, purpose-specific consent recorded BEFORE any identity retrieval or verification. Revoking never deletes the row.
+model KycConsent {
+  id             String   @id @default(uuid())
+  userId         String
+  purpose        String
+  consentVersion String
+  grantedAt      DateTime @default(now())
+  revokedAt      DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  attempts       KycVerificationAttempt[]
+
+  @@index([userId, purpose])
+}
+
+/// One verification attempt. Statuses are TEXT guarded by CHECKs. VERIFIED requires providerRef + providerConfirmedAt.
+/// Only a masked identifier is stored; Aadhaar numbers, OTPs and credentials have no column.
+model KycVerificationAttempt {
+  id                  String    @id @default(uuid())
+  userId              String
+  consentId           String
+  kind                String
+  status              String    @default("PENDING")
+  provider            String
+  providerRef         String?
+  maskedIdentifier    String?
+  mismatchFlags       String[]  @default([])
+  failureCode         String?
+  failureReason       String?
+  providerConfirmedAt DateTime?
+  completedAt         DateTime?
+  expiresAt           DateTime?
+  idempotencyKey      String
+  openKey             String?   @unique
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  user                User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  consent             KycConsent @relation(fields: [consentId], references: [id], onDelete: Restrict)
+  events              KycAttemptEvent[]
+
+  @@unique([userId, idempotencyKey])
+  @@unique([provider, providerRef])
+  @@index([userId, kind, createdAt])
+  @@index([status, createdAt])
+}
+
+/// Append-only history (trigger-enforced).
+model KycAttemptEvent {
+  id             String   @id @default(uuid())
+  attemptId      String
+  fromStatus     String?
+  toStatus       String
+  eventType      String
+  source         String
+  actorId        String?
+  webhookEventId String?
+  reason         String?
+  createdAt      DateTime @default(now())
+  attempt        KycVerificationAttempt @relation(fields: [attemptId], references: [id], onDelete: Restrict)
+
+  @@index([attemptId, createdAt])
+}
