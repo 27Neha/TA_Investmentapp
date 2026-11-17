@@ -28,8 +28,11 @@ export class SupportController {
   @Get('tickets/:id') get(@Req() r: Request, @Param('id', ParseUUIDPipe) id: string) { return this.s.get(uid(r), id); }
   @Post('tickets/:id/messages') @Throttle({ default: { limit: 20, ttl: 60_000 } }) message(@Req() r: Request, @Param('id', ParseUUIDPipe) id: string, @Body() b: MessageDto) { return this.s.addMessage(uid(r), id, b.body); }
   @Post('tickets/:id/attachments') @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES + 1, files: 1 } }))
-  attach(@Req() r: Request, @Param('id', ParseUUIDPipe) id: string, @UploadedFile() file: any) { return this.s.addAttachment(uid(r), id, file); }
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_ATTACHMENT_BYTES, files: 1 } }))
+  attach(@Req() r: Request, @Param('id', ParseUUIDPipe) id: string, @UploadedFile() file: any, @Body() b: { messageId?: string }) {
+    if (b?.messageId !== undefined && !/^[0-9a-f-]{36}$/i.test(String(b.messageId))) throw new BadRequestException('messageId must be a UUID.');
+    return this.s.addAttachment(uid(r), id, file, b?.messageId);
+  }
   @Get('attachments/:id/url') url(@Req() r: Request, @Param('id', ParseUUIDPipe) id: string) { return this.s.attachmentUrl(uid(r), id); }
 }
 

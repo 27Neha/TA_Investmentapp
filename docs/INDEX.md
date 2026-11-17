@@ -11,3 +11,4 @@
 | `SUPABASE-AND-DEPLOYMENT.md` | Milestone 1 deployment foundation |
 
 Known staleness: `PHASE-1-STATUS.md` says "do not start Phase 2" and mentions one migration; there are now five. Phase 2 work is tracked in the Phase 2 branch, not in those files. Where a historical document disagrees with the code or `ARCHITECTURE.md`, trust the code.
+- [SUPPORT-ATTACHMENTS.md](SUPPORT-ATTACHMENTS.md): attachment upload/download design, limits, security model, what is unverified.

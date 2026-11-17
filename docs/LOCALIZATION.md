@@ -8,7 +8,7 @@
 | Still to be supplied by the owner | The remaining languages of the original ~13. **None is assumed or pre-added** (an earlier draft that included Odia and Urdu was removed on the owner's instruction). |
 
 ## What is translated
-- English is complete (1,035 keys). The other 10 languages carry **40 draft UI labels** (navigation, login/signup/verify/reset, common buttons). Everything else falls back to English. These are machine-assisted drafts and **need native-speaker review**; none is marked reviewed (`legalReviewed: false`).
+- English is complete (1,062 keys). The other 10 languages carry **40 draft UI labels** (navigation, login/signup/verify/reset, common buttons). Everything else falls back to English. These are machine-assisted drafts and **need native-speaker review**; none is marked reviewed (`legalReviewed: false`).
 - **Legal, consent, financial and risk text stays English** for every non-English language until a human reviewer signs it off. Enforced three ways: (1) `LEGAL_KEY_PREFIXES` (`disclosure. consent. risk. legal. signup.accept signup.legalUnavailable kyc. invest. pay. sip. mandate. guardian.`); (2) a runtime guard in `translate()` that ignores any translation for these keys unless the locale's `legalReviewed` is true; (3) `npm run i18n:check` fails if such a key is translated early. It also fails on unknown keys and mismatched `{placeholders}`.
 - Coverage today: `npm run i18n:check` (run in `apps/mobile`).
 

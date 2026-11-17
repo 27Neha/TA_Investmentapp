@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'; // public value only — never put secrets in EXPO_PUBLIC_*
+export const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000'; // public value only — never put secrets in EXPO_PUBLIC_*
 const ACCESS = 'ta.access';
 const REFRESH = 'ta.refresh';
 
@@ -22,7 +22,7 @@ export const tokens = {
 };
 
 let refreshing: Promise<boolean> | null = null;
-async function tryRefresh(): Promise<boolean> {
+export async function tryRefresh(): Promise<boolean> {
   refreshing ??= (async () => {
     const rt = await tokens.refresh();
     if (!rt) return false;

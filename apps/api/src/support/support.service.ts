@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash, randomUUID } from 'crypto';
 import { InboxService, AuditService } from '../inbox/inbox.service';
-import { ATTACHMENT_STORE, AttachmentStore, SIGNED_URL_TTL_SECONDS, StorageNotConfiguredError } from '../integrations/storage/attachment-store';
+import { ATTACHMENT_STORE, AttachmentStore, SIGNED_URL_TTL_SECONDS, StorageBucketNotPrivateError, StorageNotConfiguredError } from '../integrations/storage/attachment-store';
 import { checkAttachment, MAX_ATTACHMENTS } from '../integrations/security/attachments';
 import { looksLikeAadhaar } from '../integrations/kyc/match';
 import { findSensitive } from '../integrations/security/sensitive';
@@ -66,30 +66,57 @@ export class SupportService {
   }
 
   // ---------------------------------------------------------------- attachments (private storage + metadata in PostgreSQL)
-  async addAttachment(userId: string, ticketId: string, file: { originalname: string; mimetype: string; buffer: Buffer } | undefined) {
-    if (!file) throw new BadRequestException('No file received.');
+  /**
+   * Upload one file to a ticket the caller owns. Order matters: ownership -> ticket open -> limits -> content validation -> storage -> metadata.
+   * The object key is built from server ids only. The client's file name is sanitised and kept only as display metadata; file bytes, names and the
+   * storage key are never written to logs. `messageId` (optional) attaches the file to one of the caller's own earlier messages on this ticket;
+   * without it the file becomes its own message.
+   */
+  async addAttachment(userId: string, ticketId: string, file: { originalname: string; mimetype: string; buffer: Buffer } | undefined, messageId?: string) {
+    if (!file) throw new BadRequestException({ message: 'No file received.', code: 'ATTACHMENT_MISSING' });
     if (!this.store.isConfigured()) throw new ServiceUnavailableException({ message: 'Attachments are not available yet.', code: 'STORAGE_NOT_CONFIGURED' });
     const t = await this.prisma.supportTicket.findFirst({ where: { id: ticketId, userId } });
     if (!t) throw new NotFoundException('Ticket not found.');
+    if (t.status === 'CLOSED') throw new ConflictException({ message: 'This request is closed. Please open a new one.', code: 'TICKET_CLOSED' });
+    let target: { id: string } | null = null;
+    if (messageId) { // only your own message on this very ticket
+      target = await this.prisma.supportMessage.findFirst({ where: { id: messageId, ticketId, authorType: 'USER' }, select: { id: true } });
+      if (!target) throw new NotFoundException('Message not found.');
+    }
     const used = await this.prisma.supportAttachment.count({ where: { message: { ticketId }, status: { not: 'REJECTED' } } });
     if (used >= MAX_ATTACHMENTS) throw new ConflictException({ message: `A ticket can have at most ${MAX_ATTACHMENTS} attachments.`, code: 'TOO_MANY_ATTACHMENTS' });
     const v = checkAttachment({ name: file.originalname, declaredMime: file.mimetype, data: file.buffer });
     if (!v.ok) throw new BadRequestException({ message: 'This file cannot be attached.', code: `ATTACHMENT_${v.code}` });
     const sha = createHash('sha256').update(file.buffer).digest('hex');
     const key = `${userId}/${ticketId}/${randomUUID()}.${v.safeName.split('.').pop()!.toLowerCase()}`; // path from server ids only, never the client's name
-    const msg = await this.prisma.supportMessage.create({ data: { ticketId, direction: 'IN', authorType: 'USER', body: `Attachment: ${v.safeName}`, channel: 'APP', occurredAt: new Date() } });
+    const created = target ? null : await this.prisma.supportMessage.create({ data: { ticketId, direction: 'IN', authorType: 'USER', body: `Attachment: ${v.safeName}`, channel: 'APP', occurredAt: new Date() } });
+    const msgId = (target ?? created)!.id;
+    const undo = async () => { if (created) await this.prisma.supportMessage.delete({ where: { id: created.id } }).catch(() => undefined); };
     try { await this.store.put(key, file.buffer, v.mime); }
-    catch (e) { await this.prisma.supportMessage.delete({ where: { id: msg.id } }).catch(() => undefined); throw new ServiceUnavailableException({ message: 'The file could not be saved. Please try again.', code: e instanceof StorageNotConfiguredError ? 'STORAGE_NOT_CONFIGURED' : 'STORAGE_ERROR' }); }
-    const a = await this.prisma.supportAttachment.create({ data: { messageId: msg.id, fileName: v.safeName, mime: v.mime, sizeBytes: file.buffer.length, sha256: sha, storageKey: key, status: 'STORED' } });
-    await this.audit.record(userId, 'SUPPORT_ATTACHMENT_ADDED', 'SupportAttachment', a.id);
-    return { id: a.id, fileName: a.fileName, mime: a.mime, sizeBytes: a.sizeBytes, status: a.status, forwardedToDesk: false };
+    catch (e) {
+      await undo();
+      const code = e instanceof StorageNotConfiguredError ? 'STORAGE_NOT_CONFIGURED' : e instanceof StorageBucketNotPrivateError ? 'STORAGE_BUCKET_PUBLIC' : 'STORAGE_ERROR';
+      this.log.warn(`attachment upload failed (${code})`);
+      throw new ServiceUnavailableException({ message: 'The file could not be saved. Please try again.', code });
+    }
+    try {
+      const a = await this.prisma.supportAttachment.create({ data: { messageId: msgId, fileName: v.safeName, mime: v.mime, sizeBytes: file.buffer.length, sha256: sha, storageKey: key, status: 'STORED' } });
+      await this.audit.record(userId, 'SUPPORT_ATTACHMENT_ADDED', 'SupportAttachment', a.id);
+      return { id: a.id, messageId: msgId, fileName: a.fileName, mime: a.mime, sizeBytes: a.sizeBytes, status: a.status, forwardedToDesk: false };
+    } catch {
+      await this.store.remove(key).catch(() => undefined); await undo(); // never leave an object without its metadata
+      throw new ServiceUnavailableException({ message: 'The file could not be saved. Please try again.', code: 'STORAGE_ERROR' });
+    }
   }
-  /** Ownership is checked in the query itself; a signed URL is only ever created for the owner's own file, and expires in minutes. */
+  /** Ownership is checked in the query itself; a signed URL is only ever created for the owner's own stored file, and expires in minutes. The URL is returned to the caller only: never logged or stored. */
   async attachmentUrl(userId: string, id: string) {
-    const a = await this.prisma.supportAttachment.findFirst({ where: { id, message: { ticket: { userId } }, storageKey: { not: null } } });
+    const a = await this.prisma.supportAttachment.findFirst({ where: { id, status: 'STORED', message: { ticket: { userId } }, storageKey: { not: null } } });
     if (!a) throw new NotFoundException('Attachment not found.');
-    try { return { url: await this.store.createSignedUrl(a.storageKey!, SIGNED_URL_TTL_SECONDS), expiresInSeconds: SIGNED_URL_TTL_SECONDS }; }
-    catch { throw new ServiceUnavailableException({ message: 'The file is not available right now.', code: 'STORAGE_ERROR' }); }
+    try {
+      const url = await this.store.createSignedUrl(a.storageKey!, SIGNED_URL_TTL_SECONDS);
+      await this.audit.record(userId, 'SUPPORT_ATTACHMENT_LINK_ISSUED', 'SupportAttachment', a.id);
+      return { url, expiresInSeconds: SIGNED_URL_TTL_SECONDS, fileName: a.fileName, mime: a.mime };
+    } catch (e) { throw new ServiceUnavailableException({ message: 'The file is not available right now.', code: e instanceof StorageBucketNotPrivateError ? 'STORAGE_BUCKET_PUBLIC' : 'STORAGE_ERROR' }); }
   }
 
   // ---------------------------------------------------------------- outbox worker (delivery to the desk)

@@ -9,7 +9,7 @@ Legend: **DONE+TESTED** = implemented and covered by automated tests that actual
 | Payment / mandate / SIP: engine, persistence, endpoints, gate | DONE+TESTED against a fake provider | `BLOCKED-PROVIDER` for Cybrilla (no credentials/docs); success only from provider-verified events |
 | Payment / mandate / SIP / invest mobile screens | UI-BUILT | entry points disabled with the server's reasons while the gate fails |
 | Support tickets (API, outbox, honest delivery state) | DONE+TESTED against a fake desk | Zoho Desk adapter **UNVERIFIED**; user follow-up to Desk blocked (`CapabilityUnverifiedError`); attachment forwarding to Desk **NOT IMPLEMENTED** |
-| Support attachments (private bucket, signed URLs, 5 MB PDF/PNG/JPEG) | DONE+TESTED with a fake store | Supabase adapter **UNVERIFIED**; the app cannot add attachments yet (no file-picker dependency added), it can open existing ones |
+| Support attachments (private bucket, signed URLs, 5 MB PDF/PNG/JPEG) | DONE+TESTED with a fake store; mobile picker/upload/open **UI-BUILT** (typechecked, bundled, rules unit-tested in Node; not run on a device) | Supabase adapter **UNVERIFIED** against the real project (bucket-privacy check and signed-URL calls are written to the documented REST API only); attachment forwarding to Zoho Desk **NOT IMPLEMENTED**; no malware scanning (format checks only). See `SUPPORT-ATTACHMENTS.md` |
 | Support mobile screens | UI-BUILT | list, new, detail |
 | Guardian links/permissions (API) | DONE+TESTED; flag `guardian.accounts` OFF | read-only scopes only; TRANSACT/MANAGE_PROFILE/VIEW_PORTFOLIO/VIEW_TRANSACTIONS disabled in code; consent text is a **draft awaiting legal approval**; compliance approval is the activation gate |
 | Guardian mobile screens | UI-BUILT | |
@@ -28,4 +28,4 @@ Legend: **DONE+TESTED** = implemented and covered by automated tests that actual
 | Cybrilla | BLOCKED-PROVIDER | no docs/sandbox/credentials |
 
 ## Verification at the latest commit
-API: 349/349 tests, typecheck, build. Root ESLint 0 errors. Mobile: `tsc`, `i18n:check`, Android export. Admin: `next build`. Prod audit: 8 findings (3 high, 5 moderate) remain, documented. GitHub Actions and `db:drift` not run here. No device/emulator testing.
+API: 362/362 tests, typecheck, build. Root ESLint 0 errors. Mobile: `tsc`, `i18n:check`, `npm run test:attachments` (5/5), Android export (JS bundle contains the document picker). Admin: not touched in this change; last `next build` passed before it. Prod audit: 8 findings (3 high, 5 moderate) remain, documented. GitHub Actions and `db:drift` not run here. No device/emulator testing.

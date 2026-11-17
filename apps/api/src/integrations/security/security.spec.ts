@@ -1,4 +1,5 @@
 import { createHmac } from 'crypto';
+import { JPEG_OK, makePdf, PDF_OK, PNG_OK } from '../../../test/fakes/files';
 import { checkAttachment, MAX_ATTACHMENT_BYTES, sanitizeFileName } from './attachments';
 import { findSensitive, redactSensitive } from './sensitive';
 import { verifyHmacSha256, verifyHs256Jwt } from './webhook-signature';
@@ -50,7 +51,7 @@ describe('sensitive data guard', () => {
 });
 
 describe('attachment policy', () => {
-  const pdf = Buffer.from('%PDF-1.7\n...'), png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]), jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0]);
+  const pdf = PDF_OK, png = PNG_OK, jpg = JPEG_OK;
   it('accepts PDF/PNG/JPEG whose content matches their type', () => {
     expect(checkAttachment({ name: 'statement.pdf', declaredMime: 'application/pdf', data: pdf })).toMatchObject({ ok: true });
     expect(checkAttachment({ name: 'shot.PNG', declaredMime: 'image/png', data: png })).toMatchObject({ ok: true });
@@ -64,6 +65,19 @@ describe('attachment policy', () => {
     expect(checkAttachment({ name: 'a.pdf', declaredMime: 'application/pdf', data: Buffer.alloc(MAX_ATTACHMENT_BYTES + 1, 1) })).toMatchObject({ ok: false, code: 'TOO_LARGE' });
     expect(checkAttachment({ name: 'a.pdf', declaredMime: 'application/pdf', data: Buffer.alloc(0) })).toMatchObject({ ok: false, code: 'EMPTY' });
     expect(checkAttachment({ name: 'noext', declaredMime: 'application/pdf', data: pdf })).toMatchObject({ ok: false, code: 'BAD_NAME' });
+  });
+  it('checks real structure, not just the first bytes', () => {
+    const chk = (name: string, mime: string, data: Buffer) => checkAttachment({ name, declaredMime: mime, data });
+    expect(chk('a.png', 'image/png', Buffer.concat([PNG_OK.subarray(0, 8), Buffer.alloc(80, 7)]))).toMatchObject({ ok: false, code: 'CONTENT_INVALID' }); // signature only
+    expect(chk('a.png', 'image/png', PNG_OK.subarray(0, PNG_OK.length - 3))).toMatchObject({ ok: false, code: 'CONTENT_INVALID' }); // truncated, no IEND
+    expect(chk('a.jpg', 'image/jpeg', Buffer.concat([JPEG_OK.subarray(0, 3), Buffer.alloc(200, 9)]))).toMatchObject({ ok: false, code: 'CONTENT_INVALID' }); // no EOI
+    expect(chk('a.jpg', 'image/jpeg', PNG_OK)).toMatchObject({ ok: false, code: 'CONTENT_MISMATCH' }); // a PNG renamed .jpg
+    expect(chk('a.pdf', 'application/pdf', Buffer.from('%PDF-1.4\nno trailer here'))).toMatchObject({ ok: false, code: 'CONTENT_INVALID' });
+  });
+  it('rejects PDFs with active content, including hex-obfuscated names', () => {
+    for (const extra of ['/OpenAction << /S /JavaScript /JS (app.alert(1)) >>', '/AA << /O << /S /Launch /F (cmd.exe) >> >>', '/Names << /EmbeddedFiles 9 0 R >>', '/OpenAction << /S /#4a#61vaScript >>'])
+      expect(checkAttachment({ name: 'a.pdf', declaredMime: 'application/pdf', data: makePdf({ extra }) })).toMatchObject({ ok: false, code: 'ACTIVE_CONTENT' });
+    expect(checkAttachment({ name: 'ok.pdf', declaredMime: 'application/pdf', data: makePdf({ extra: '/OpenAction [3 0 R /Fit]' }) })).toMatchObject({ ok: true });
   });
   it('sanitises path tricks in names', () => {
     expect(sanitizeFileName('../../etc/passwd.pdf')).toBe('passwd.pdf');
