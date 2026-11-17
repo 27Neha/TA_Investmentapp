@@ -19,7 +19,7 @@ Legend: **DONE+TESTED** = implemented and covered by automated tests that actual
 | Riskometer + 12-question mobile flow | UI-BUILT | animation/reduce-motion/screen reader unverified on device |
 | Scheme-Riskometer suitability link into fund discovery | NOT STARTED (needs verified scheme risk data); engine function exists | personal profile is never presented as a scheme Riskometer |
 | Admin read-only views (support, payments, mandates/SIPs, KYC review, guardian) | DONE+TESTED (API); UI built, `next build` passes | role-gated, masked, no write routes except audited KYC decisions |
-| Localisation: registry, 13 languages, guards | DONE+TESTED (parity + check script) | 40 draft UI labels in 12 languages; legal/financial/risk text English; Odia/Urdu **proposed**; see `LOCALIZATION.md` |
+| Localisation: configurable registry, 11 confirmed languages, guards | DONE+TESTED (parity + check script) | 40 draft UI labels per non-English language (10 languages); legal/financial/risk text English; remaining languages to be supplied by the owner; see `LOCALIZATION.md` |
 | ZeptoMail bounce/open webhooks, honest delivery status | NOT STARTED, BLOCKED-PROVIDER | `zeptomail` is allowed in the webhook table; needs sender-domain and webhook spec |
 | SMS / WhatsApp OTP | NOT STARTED, BLOCKED-PROVIDER | DLT, templates |
 | Retention | documented only (`RETENTION-CONFIGURATION.md`) | no deletion/anonymisation jobs |

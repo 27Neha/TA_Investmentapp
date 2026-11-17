@@ -1,6 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
-import { I18nManager } from 'react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import en, { TranslationKey } from './en';
 import hi from './hi';
@@ -13,16 +12,14 @@ import te from './te';
 import as from './as';
 import kn from './kn';
 import ml from './ml';
-import or from './or';
-import ur from './ur';
 
 import { LEGAL_KEY_PREFIXES, LOCALE_REGISTRY } from './locales';
 
-// 11 of 13 languages registered; 2 pending owner confirmation. Missing keys fall back to English.
+// The 11 owner-confirmed languages. More are added through locales.ts when the owner supplies them. Missing keys fall back to English.
 export const LOCALES = LOCALE_REGISTRY.map((l) => l.code);
 export type Locale = string;
 export const localeName = (code: string) => LOCALE_REGISTRY.find((l) => l.code === code)?.nativeName ?? code;
-const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr, gu, pa, bn, ta, te, as, kn, ml, or, ur };
+const catalogs: Record<string, Partial<Record<TranslationKey, string>>> = { en, hi, mr, gu, pa, bn, ta, te, as, kn, ml };
 const KEY = 'ta.locale';
 
 export function translate(locale: Locale, key: TranslationKey, vars?: Record<string, string>): string {
@@ -48,9 +45,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, []);
   const setLocale = useCallback((l: Locale) => {
     setLoc(l); AsyncStorage.setItem(KEY, l).catch(() => undefined);
-    // Right-to-left (Urdu): Android applies the layout direction on the NEXT app launch. Not verified on a device.
-    const rtl = Boolean(LOCALE_REGISTRY.find((x) => x.code === l)?.rtl);
-    if (I18nManager.isRTL !== rtl) { I18nManager.allowRTL(rtl); I18nManager.forceRTL(rtl); }
   }, []);
   const t = useCallback((k: TranslationKey, v?: Record<string, string>) => translate(locale, k, v), [locale]);
   const value = useMemo(() => ({ locale, setLocale, t }), [locale, setLocale, t]);

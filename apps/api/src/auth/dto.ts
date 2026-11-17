@@ -1,8 +1,8 @@
 import { Transform } from 'class-transformer';
 import { IsBoolean, IsDateString, IsEmail, IsIn, IsOptional, IsString, Length, Matches, MaxLength } from 'class-validator';
 
-/** Mirrors apps/mobile/src/i18n/locales.ts. 11 owner-confirmed (en hi mr gu pa bn ta te as kn ml) + 2 PROPOSED (or ur) pending the owner's final list; edit both registries together. Legal text for non-English locales falls back to English until human-reviewed. */
-export const SUPPORTED_LOCALES = ['en', 'hi', 'mr', 'gu', 'pa', 'bn', 'ta', 'te', 'as', 'kn', 'ml', 'or', 'ur'] as const;
+/** Mirrors apps/mobile/src/i18n/locales.ts: the 11 owner-confirmed languages. More will be added when the owner supplies them; edit both registries together (a parity test enforces it). Legal text for non-English locales falls back to English until human-reviewed. */
+export const SUPPORTED_LOCALES = ['en', 'hi', 'mr', 'gu', 'pa', 'bn', 'ta', 'te', 'as', 'kn', 'ml'] as const;
 
 export class SignupDto {
   @IsString() @Length(2, 100) fullName: string;

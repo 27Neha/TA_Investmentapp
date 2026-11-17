@@ -16,4 +16,4 @@ API unit + integration tests (disposable local PostgreSQL), API typecheck and `n
 3. Provider work (all BLOCKED-PROVIDER): Cybrilla, KYC partner, Zoho Desk, ZeptoMail delivery webhooks, Supabase Storage live test.
 4. Compliance sign-off: consent and legal wording, risk-methodology approval, guardian activation, and the `investing.*` flags (all default OFF).
 5. Human translation review (see `LOCALIZATION.md`).
-6. Device test using `MOBILE-DEVICE-TEST-CHECKLIST.md`, plus Riskometer animation and reduce-motion, Urdu RTL, screen-reader pass.
+6. Device test using `MOBILE-DEVICE-TEST-CHECKLIST.md`, plus Riskometer animation and reduce-motion, Indic script rendering, screen-reader pass.
