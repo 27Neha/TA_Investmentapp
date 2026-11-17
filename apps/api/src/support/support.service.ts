@@ -5,7 +5,7 @@ import { ATTACHMENT_STORE, AttachmentStore, SIGNED_URL_TTL_SECONDS, StorageBucke
 import { checkAttachment, MAX_ATTACHMENTS } from '../integrations/security/attachments';
 import { looksLikeAadhaar } from '../integrations/kyc/match';
 import { findSensitive } from '../integrations/security/sensitive';
-import { CapabilityUnverifiedError, SUPPORT_PORT, SupportInboundEvent, SupportNotConfiguredError, SupportPort } from '../integrations/support/support.port';
+import { CapabilityUnverifiedError, DeskCapabilityReport, SUPPORT_PORT, SupportInboundEvent, SupportNotConfiguredError, SupportPort } from '../integrations/support/support.port';
 import { PrismaService } from '../prisma/prisma.service';
 
 export const CATEGORIES = ['ACCOUNT', 'KYC', 'PAYMENT', 'SIP', 'MANDATE', 'TECHNICAL', 'OTHER'] as const;
@@ -28,7 +28,13 @@ export class SupportService {
   private readonly log = new Logger('Support');
   constructor(private readonly prisma: PrismaService, private readonly inbox: InboxService, private readonly audit: AuditService, @Inject(SUPPORT_PORT) private readonly desk: SupportPort, @Inject(ATTACHMENT_STORE) private readonly store: AttachmentStore) {}
 
-  status() { return { deskConnected: this.desk.isConnected(), attachmentsAvailable: this.store.isConfigured(), attachmentForwarding: 'NOT_VERIFIED', maxAttachments: MAX_ATTACHMENTS, maxBytes: 5 * 1024 * 1024, allowedTypes: ['application/pdf', 'image/png', 'image/jpeg'], categories: CATEGORIES }; }
+  /** Last read-only capability probe of the real desk. Sync and webhooks are enabled only for what this report proves. */
+  private report: DeskCapabilityReport | null = null;
+  capabilities() { return this.report; }
+  webhookEnabled() { return this.desk.probe ? Boolean(this.report?.capabilities.webhook) : true; } // an adapter that can be probed stays off until a probe has proven the webhook keys; adapters without a probe (test fakes) are unaffected
+  async runProbe() { if (!this.desk.probe) return null; try { this.report = await this.desk.probe(); } catch { this.report = { checkedAt: new Date().toISOString(), checks: [{ name: 'oauth', ok: false, detail: 'ERROR' }], capabilities: { pullSync: false, webhook: false } }; } return this.report; }
+
+  status() { return { deskConnected: this.desk.isConnected(), deskSync: this.report ? { pull: this.report.capabilities.pullSync, webhook: this.report.capabilities.webhook, checkedAt: this.report.checkedAt } : null, attachmentsAvailable: this.store.isConfigured(), attachmentForwarding: 'NOT_VERIFIED', maxAttachments: MAX_ATTACHMENTS, maxBytes: 5 * 1024 * 1024, allowedTypes: ['application/pdf', 'image/png', 'image/jpeg'], categories: CATEGORIES }; }
 
   /** Saved locally first (so nothing is lost if the desk is down), then queued for delivery. Idempotent per clientRequestId. */
   async createTicket(userId: string, i: { category: string; subject: string; message: string; clientRequestId: string }) {
@@ -151,6 +157,29 @@ export class SupportService {
       const r = await this.desk.addUserFollowUp(m.ticket.externalId, m.ticket.userId!, m.body); // throws CapabilityUnverifiedError until proven against the real org
       if (r.threadId) await this.prisma.supportMessage.update({ where: { id: m.id }, data: { externalThreadId: r.threadId } });
     }
+  }
+
+  // ---------------------------------------------------------------- pull sync (status + agent replies), only when the probe proved read access
+  /** Reconciles tickets we created with the desk. Idempotent: every change goes through applyInbound's dedupe. Never creates or edits anything at the desk. */
+  async syncFromDesk(limit = 20): Promise<{ checked: number; applied: number; skipped?: string }> {
+    if (!this.desk.isConnected() || !this.desk.getTicketState || !this.desk.listAgentThreads) return { checked: 0, applied: 0, skipped: 'NO_DESK' };
+    if (this.desk.probe && !this.report?.capabilities.pullSync) return { checked: 0, applied: 0, skipped: 'PULL_NOT_VERIFIED' };
+    const tickets = await this.prisma.supportTicket.findMany({ where: { externalProvider: this.desk.name, externalId: { not: null }, status: { notIn: ['CLOSED', 'SYNC_FAILED'] } }, orderBy: [{ lastSyncedAt: { sort: 'asc', nulls: 'first' } }], take: limit });
+    let applied = 0;
+    for (const t of tickets) {
+      try {
+        const st = await this.desk.getTicketState(t.externalId!);
+        if (st && st.status !== t.status) { const r = await this.applyInbound({ eventId: `poll:state:${t.externalId}:${st.status}:${st.modifiedTime ?? ''}`, externalTicketId: t.externalId!, type: 'STATUS_CHANGED', status: st.status, occurredAt: new Date() }, 'poll'); if (r.outcome === 'APPLIED') applied++; }
+        const known = new Set((await this.prisma.supportMessage.findMany({ where: { ticketId: t.id, externalThreadId: { not: null } }, select: { externalThreadId: true } })).map((m) => m.externalThreadId));
+        for (const th of await this.desk.listAgentThreads(t.externalId!)) {
+          if (known.has(th.threadId)) continue;
+          const r = await this.applyInbound({ eventId: `poll:thread:${th.threadId}`, externalTicketId: t.externalId!, type: 'AGENT_REPLY', threadId: th.threadId, authorName: th.authorName, body: th.body, occurredAt: th.occurredAt }, 'poll');
+          if (r.outcome === 'APPLIED' || r.outcome === undefined) applied++;
+        }
+        await this.prisma.supportTicket.update({ where: { id: t.id }, data: { lastSyncedAt: new Date() } });
+      } catch (e: any) { this.log.warn(`desk sync failed for one ticket (${e?.code ?? 'error'})`); }
+    }
+    return { checked: tickets.length, applied };
   }
 
   // ---------------------------------------------------------------- inbound (webhook or polling), already authenticated by the adapter

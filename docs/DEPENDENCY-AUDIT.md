@@ -1,6 +1,6 @@
 # Dependency audit status
 
-Last checked 16 Nov 2026 with `npm audit --omit=dev` on commit `ed09ba9`. **Not security-clean: 8 findings remain in production dependencies (3 high, 5 moderate), all deliberately deferred.** A full `npm audit` that also includes dev/test tooling reports 22 (3 high, 12 moderate, 7 low): the extra 14 are jest/ts-jest/typescript-eslint/minimatch/deepmerge in build and test tooling, each with only a major-version fix. Re-checked on 16 Nov 2026 at cac23b4; no dependency was added or changed by the platform/product build.
+Re-checked 17 Nov 2026 (v4 batch): still 8 production findings (3 high, 5 moderate); every remaining fix is a semver-major change (NestJS 11+/12, Prisma 7, Expo 52 reported by npm as the fix path), so none was forced. No dependency was added or changed in v4. Previously last checked 16 Nov 2026 with `npm audit --omit=dev` on commit `ed09ba9`. **Not security-clean: 8 findings remain in production dependencies (3 high, 5 moderate), all deliberately deferred.** A full `npm audit` that also includes dev/test tooling reports 22 (3 high, 12 moderate, 7 low): the extra 14 are jest/ts-jest/typescript-eslint/minimatch/deepmerge in build and test tooling, each with only a major-version fix. Re-checked on 16 Nov 2026 at cac23b4; no dependency was added or changed by the platform/product build.
 CI runs `npm audit` report-only; it does not fail the build.
 
 ## Overrides in the root `package.json` (why they exist)

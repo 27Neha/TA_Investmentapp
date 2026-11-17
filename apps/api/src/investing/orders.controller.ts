@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, IsUUID, Length, Matches, Max, Min } from 'class-validator';
 import { Request } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { InvestingGate } from './investing-gate.service';
@@ -13,6 +13,7 @@ class PaymentDto {
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(100) @Max(10_000_000) amount!: number;
   @IsString() @Length(8, 64) @Matches(/^[A-Za-z0-9_-]+$/) clientRequestId!: string;
   @IsOptional() @IsIn(['UPI', 'NETBANKING']) method?: string;
+  @IsOptional() @IsBoolean() acknowledgeRisk?: boolean;
 }
 class MandateDto {
   @Type(() => Number) @IsNumber({ maxDecimalPlaces: 2 }) @Min(100) @Max(10_000_000) maxAmount!: number;
@@ -26,6 +27,7 @@ class SipDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(28) dayOfMonth?: number;
   @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) startDate!: string;
   @IsOptional() @IsUUID() mandateId?: string;
+  @IsOptional() @IsBoolean() acknowledgeRisk?: boolean;
   @IsString() @Length(8, 64) @Matches(/^[A-Za-z0-9_-]+$/) clientRequestId!: string;
 }
 const uid = (r: Request) => (r as any).user.sub as string;

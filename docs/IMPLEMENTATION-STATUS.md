@@ -17,15 +17,15 @@ Legend: **DONE+TESTED** = implemented and covered by automated tests that actual
 | KYC mobile journey | UI-BUILT | honest "partner not connected" state |
 | 12-question risk engine `ta-risk-v1`, server scoring, history, docs | DONE+TESTED (46 unit + 8 integration) | methodology awaits compliance approval; `docs/RISK-SCORING-METHODOLOGY.md`; client cannot set score/band |
 | Riskometer + 12-question mobile flow | UI-BUILT | animation/reduce-motion/screen reader unverified on device |
-| Scheme-Riskometer suitability link into fund discovery | NOT STARTED (needs verified scheme risk data); engine function exists | personal profile is never presented as a scheme Riskometer |
+| Scheme-Riskometer suitability link, order gating, mobile UI | DONE+TESTED (v4); UI-BUILT | needs a verified `SCHEME_RISKOMETER_FILE`; policy `ta-suit-v1` unreviewed; personal profile is never presented as a scheme Riskometer. See `INVESTMENT-JOURNEY.md` |
 | Admin read-only views (support, payments, mandates/SIPs, KYC review, guardian) | DONE+TESTED (API); UI built, `next build` passes | role-gated, masked, no write routes except audited KYC decisions |
 | Localisation: configurable registry, 11 confirmed languages, guards | DONE+TESTED (parity + check script) | 40 draft UI labels per non-English language (10 languages); legal/financial/risk text English; remaining languages to be supplied by the owner; see `LOCALIZATION.md` |
-| ZeptoMail bounce/open webhooks, honest delivery status | NOT STARTED, BLOCKED-PROVIDER | `zeptomail` is allowed in the webhook table; needs sender-domain and webhook spec |
-| SMS / WhatsApp OTP | NOT STARTED, BLOCKED-PROVIDER | DLT, templates |
+| ZeptoMail bounce webhook, suppression, Retry-After | DONE+TESTED (v4), externally UNVERIFIED | no delivered event exists; needs token, sender domain, webhook registration. See `NOTIFICATIONS.md` |
+| SMS / WhatsApp notifications (ports, approvals, DLT config, outbox, Interakt adapter+webhook) | DONE+TESTED against fakes (v4), externally UNVERIFIED | no SMS vendor chosen; DLT ids, approved templates, Interakt key and webhook signature confirmation needed. OTP stays on email. See `NOTIFICATIONS.md` |
 | Retention | documented only (`RETENTION-CONFIGURATION.md`) | no deletion/anonymisation jobs |
 | Admin writes beyond flags/KYC decision | NOT STARTED | by design |
-| Release: APK/AAB, device tests, deployment | NOT DONE | see `RELEASE-READINESS.md`; package ID unconfirmed |
+| Release: APK/AAB, device tests, deployment | NOT DONE | see `ANDROID-RELEASE.md`, `RELEASE-READINESS.md`; package ID unconfirmed |
 | Cybrilla | BLOCKED-PROVIDER | no docs/sandbox/credentials |
 
 ## Verification at the latest commit
-API: 362/362 tests, typecheck, build. Root ESLint 0 errors. Mobile: `tsc`, `i18n:check`, `npm run test:attachments` (5/5), Android export (JS bundle contains the document picker). Admin: not touched in this change; last `next build` passed before it. Prod audit: 8 findings (3 high, 5 moderate) remain, documented. GitHub Actions and `db:drift` not run here. No device/emulator testing.
+API: see `RELEASE-CANDIDATE-V4.md` (latest run recorded there). Earlier: 362/362 tests, typecheck, build. Root ESLint 0 errors. Mobile: `tsc`, `i18n:check`, `npm run test:attachments` (5/5), Android export (JS bundle contains the document picker). Admin: not touched in this change; last `next build` passed before it. Prod audit: 8 findings (3 high, 5 moderate) remain, documented. GitHub Actions and `db:drift` not run here. No device/emulator testing.

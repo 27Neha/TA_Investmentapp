@@ -18,9 +18,12 @@ import { SupportService } from './support.service';
   exports: [SupportService],
 })
 export class SupportModule implements OnModuleInit, OnModuleDestroy {
-  private t?: NodeJS.Timeout;
+  private t?: NodeJS.Timeout; private u?: NodeJS.Timeout; private p?: NodeJS.Timeout;
   constructor(private readonly s: SupportService, @Inject(APP_CONFIG) private readonly cfg: AppConfig) {}
   /** Delivery worker: off under test and when SUPPORT_WORKER=off. A no-op until a desk is configured. */
-  onModuleInit() { if (process.env.NODE_ENV === 'test' || process.env.SUPPORT_WORKER === 'off') return; this.t = setInterval(() => this.s.processOutbox().catch(() => undefined), 30_000); this.t.unref?.(); }
-  onModuleDestroy() { if (this.t) clearInterval(this.t); }
+  onModuleInit() { if (process.env.NODE_ENV === 'test' || process.env.SUPPORT_WORKER === 'off') return; this.t = setInterval(() => this.s.processOutbox().catch(() => undefined), 30_000); this.t.unref?.();
+    // Read-only capability probe now and hourly; pull sync every minute (a no-op until the probe has proven read access).
+    this.s.runProbe().catch(() => undefined); this.p = setInterval(() => this.s.runProbe().catch(() => undefined), 3_600_000); this.p.unref?.();
+    this.u = setInterval(() => this.s.syncFromDesk().catch(() => undefined), 60_000); this.u.unref?.(); }
+  onModuleDestroy() { for (const x of [this.t, this.u, this.p]) if (x) clearInterval(x); }
 }

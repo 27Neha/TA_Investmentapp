@@ -1,4 +1,5 @@
-import { CapabilityUnverifiedError, CreateTicketInput, CreatedTicket, SupportPort, SupportProviderError } from './support.port';
+import { CapabilityUnverifiedError, CreateTicketInput, CreatedTicket, DeskAgentThread, DeskCapabilityReport, DeskTicketState, SupportInboundEvent, SupportPort, SupportProviderError, SupportWebhookRejectedError } from './support.port';
+import { Jwk, peekKid, verifyDeskJwt } from './zoho-jwt';
 
 export interface ZohoDeskConfig {
   orgId: string;
@@ -10,7 +11,17 @@ export interface ZohoDeskConfig {
   /** India data centre: https://desk.zoho.in */
   apiUrl: string;
   departmentId: string;
+  /** Optional: when set, webhooks must carry this exact webhook id in the JWT audience. */
+  webhookId?: string;
+  /** Webhooks stay disabled (404) unless this is true: set only after a real test webhook has passed. */
+  webhookEnabled?: boolean;
   timeoutMs?: number;
+}
+const stripHtml = (h: string) => h.replace(/<(br|\/p|\/div|\/li)\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\n{3,}/g, '\n\n').trim();
+const STATUS_BY_TYPE: Record<string, DeskTicketState['status']> = { open: 'OPEN', 'on hold': 'ON_HOLD', escalated: 'ESCALATED', closed: 'CLOSED' };
+/** Desk has custom statuses; each belongs to a status TYPE (Open / On Hold / Escalated / Closed). The type decides our state. */
+export function mapDeskStatus(statusType?: string, status?: string): DeskTicketState['status'] | null {
+  return STATUS_BY_TYPE[String(statusType ?? '').toLowerCase()] ?? STATUS_BY_TYPE[String(status ?? '').toLowerCase()] ?? null;
 }
 type Fetch = (url: string, init?: any) => Promise<{ ok: boolean; status: number; json(): Promise<any> }>;
 
@@ -45,10 +56,12 @@ export class ZohoDeskAdapter implements SupportPort {
   }
 
   /** One automatic re-auth on 401 (expired token); no other retries here: retry/backoff belongs to the outbox so tickets are never duplicated. */
-  private async desk(path: string, body: unknown): Promise<any> {
+  private async desk(path: string, body: unknown, method: 'POST' | 'GET' = 'POST'): Promise<any> {
     for (let attempt = 0; attempt < 2; attempt++) {
       const token = await this.accessToken(attempt === 1);
-      const res = await this.call(`${this.cfg.apiUrl}/api/v1${path}`, { method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}`, orgId: this.cfg.orgId, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await this.call(`${this.cfg.apiUrl}/api/v1${path}`, { method, headers: { Authorization: `Zoho-oauthtoken ${token}`, orgId: this.cfg.orgId, ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}) }, body: method === 'POST' ? JSON.stringify(body) : undefined });
+      if (method === 'GET' && res.status === 404) return null;
+      if (res.status === 204) return {};
       if (res.status === 401 && attempt === 0) { this.token = undefined; continue; }
       if (res.status === 401 || res.status === 403) throw new SupportProviderError('AUTH', res.status);
       if (res.status === 429) throw new SupportProviderError('RATE_LIMIT', 429);
@@ -81,4 +94,76 @@ export class ZohoDeskAdapter implements SupportPort {
   }
 
   async addUserFollowUp(): Promise<never> { throw new CapabilityUnverifiedError('Contact-authored follow-up'); }
+
+  // ------------------------------------------------------------------ read-only sync (pull). Endpoints: GET /tickets/{id}, GET /tickets/{id}/threads, GET /tickets/{id}/threads/{threadId}
+  async getTicketState(externalTicketId: string): Promise<DeskTicketState | null> {
+    const j = await this.desk(`/tickets/${encodeURIComponent(externalTicketId)}`, undefined, 'GET');
+    if (!j) return null;
+    const status = mapDeskStatus(j.statusType, j.status);
+    if (!status) throw new SupportProviderError('REJECTED'); // unknown status shape: do not guess a state
+    return { status, deskStatus: String(j.status ?? j.statusType), modifiedTime: j.modifiedTime ? String(j.modifiedTime) : undefined };
+  }
+
+  async listAgentThreads(externalTicketId: string): Promise<DeskAgentThread[]> {
+    const list = await this.desk(`/tickets/${encodeURIComponent(externalTicketId)}/threads?limit=50`, undefined, 'GET');
+    const out: DeskAgentThread[] = [];
+    for (const t of (list?.data ?? []) as any[]) {
+      if (String(t.direction).toLowerCase() !== 'out' || t.isDraft === true || !t.id) continue; // agent replies only; never drafts or the customer's own messages
+      const full = await this.desk(`/tickets/${encodeURIComponent(externalTicketId)}/threads/${encodeURIComponent(String(t.id))}`, undefined, 'GET');
+      const raw = String(full?.content ?? t.summary ?? '');
+      const body = (String(full?.contentType ?? '').toLowerCase().includes('html') ? stripHtml(raw) : raw).trim();
+      if (!body) continue;
+      out.push({ threadId: String(t.id), authorName: t.author?.name ? String(t.author.name).slice(0, 120) : undefined, body, occurredAt: new Date(t.createdTime ?? full?.createdTime ?? Date.now()) });
+    }
+    return out.sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+  }
+
+  // ------------------------------------------------------------------ capability probe: read-only, creates nothing
+  async probe(): Promise<DeskCapabilityReport> {
+    const checks: DeskCapabilityReport['checks'] = [];
+    const run = async (name: DeskCapabilityReport['checks'][number]['name'], fn: () => Promise<string | void>) => {
+      try { const d = await fn(); checks.push({ name, ok: true, detail: d || undefined }); }
+      catch (e: any) { checks.push({ name, ok: false, detail: e instanceof SupportProviderError ? `${e.code}${e.status ? ` (HTTP ${e.status})` : ''}` : 'ERROR' }); }
+    };
+    await run('oauth', async () => { await this.accessToken(true); });
+    await run('department', async () => { const d = await this.desk(`/departments/${encodeURIComponent(this.cfg.departmentId)}`, undefined, 'GET'); if (!d) throw new SupportProviderError('REJECTED', 404); });
+    await run('tickets.read', async () => { await this.desk('/tickets?limit=1', undefined, 'GET'); });
+    await run('webhook.keys', async () => { if (!this.cfg.webhookEnabled) return 'webhook disabled by configuration'; if (!(await this.jwks(true)).length) throw new SupportProviderError('REJECTED'); });
+    const ok = (n: string) => checks.find((c) => c.name === n)?.ok === true;
+    return { checkedAt: new Date(this.now()).toISOString(), checks, capabilities: { pullSync: ok('oauth') && ok('tickets.read'), webhook: Boolean(this.cfg.webhookEnabled) && ok('webhook.keys') } };
+  }
+
+  // ------------------------------------------------------------------ webhooks (RS256 JWT in X-ZDesk-JWT, keys from the JWKS endpoint)
+  private keys: { list: Jwk[]; at: number } = { list: [], at: 0 };
+  private async jwks(force = false): Promise<Jwk[]> {
+    if (!force && this.keys.list.length && this.now() - this.keys.at < 3_600_000) return this.keys.list;
+    const res = await this.call(`${this.cfg.apiUrl}/.well-known/jwks.json`, { method: 'GET' });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(j.keys)) throw new SupportProviderError('UNAVAILABLE', res.status);
+    this.keys = { list: j.keys.filter((k: any) => k?.kty === 'RSA' && k.kid && k.n && k.e), at: this.now() };
+    return this.keys.list;
+  }
+
+  async verifyAndNormalizeWebhook(raw: Buffer, headers: Record<string, string | string[] | undefined>): Promise<SupportInboundEvent[]> {
+    if (!this.cfg.webhookEnabled) throw new Error('webhook disabled');
+    const h = headers['x-zdesk-jwt']; const token = Array.isArray(h) ? h[0] : h;
+    let keys: Jwk[]; try { keys = await this.jwks(); } catch { throw new SupportWebhookRejectedError('keys unavailable'); }
+    let check = verifyDeskJwt(token, keys, { orgId: this.cfg.orgId, webhookId: this.cfg.webhookId, now: this.now() });
+    if (!check.ok && check.reason === 'NO_KEY' && peekKid(token)) { try { keys = await this.jwks(true); check = verifyDeskJwt(token, keys, { orgId: this.cfg.orgId, webhookId: this.cfg.webhookId, now: this.now() }); } catch { /* keep first result */ } } // key rotation: refetch once
+    if (!check.ok) throw new SupportWebhookRejectedError(check.reason ?? 'invalid');
+    let events: any[]; try { const j = JSON.parse(raw.toString('utf8')); events = Array.isArray(j) ? j : [j]; } catch { throw new Error('bad json'); }
+    const out: SupportInboundEvent[] = [];
+    for (const e of events) {
+      if (!e || String(e.orgId ?? this.cfg.orgId) !== this.cfg.orgId) continue; // another organization: ignore
+      const p = e.payload ?? {}; const when = e.eventTime ? new Date(e.eventTime) : new Date(this.now());
+      if (e.eventType === 'Ticket_Update' || e.eventType === 'Ticket_Add') {
+        const status = mapDeskStatus(p.statusType, p.status); if (!status || !p.id) continue;
+        out.push({ eventId: `wh:${e.eventType}:${p.id}:${status}:${e.eventTime ?? p.modifiedTime ?? ''}`, externalTicketId: String(p.id), type: 'STATUS_CHANGED', status, occurredAt: when });
+      } else if (e.eventType === 'Ticket_Thread_Add' && String(p.direction).toLowerCase() === 'out' && p.id && p.ticketId && p.visibility !== 'private') {
+        const content = String(p.content ?? p.summary ?? ''); const body = (String(p.contentType ?? '').toLowerCase().includes('html') ? stripHtml(content) : content).trim(); if (!body) continue;
+        out.push({ eventId: `wh:thread:${p.id}`, externalTicketId: String(p.ticketId), type: 'AGENT_REPLY', threadId: String(p.id), authorName: p.author?.name ? String(p.author.name).slice(0, 120) : undefined, body, occurredAt: when });
+      }
+    }
+    return out;
+  }
 }

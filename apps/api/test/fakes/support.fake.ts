@@ -9,6 +9,10 @@ export class FakeDesk implements SupportPort {
   isConnected() { return this.connected; }
   async createTicket(i: CreateTicketInput) { if (this.failCreate) throw new SupportProviderError('UNAVAILABLE', 503); this.created.push(i); return { externalId: `Z-${++this.n}`, number: `${100 + this.n}` }; }
   async sendAgentReply() { return {}; }
+  states: Record<string, { status: 'OPEN' | 'ON_HOLD' | 'ESCALATED' | 'CLOSED'; modifiedTime?: string }> = {}; threads: Record<string, { threadId: string; authorName?: string; body: string; occurredAt: Date }[]> = {}; pull = true;
+  probe = async () => ({ checkedAt: new Date().toISOString(), checks: [], capabilities: { pullSync: this.pull, webhook: this.withWebhook } });
+  async getTicketState(id: string) { return this.states[id] ? { deskStatus: this.states[id].status, ...this.states[id] } : null; }
+  async listAgentThreads(id: string) { return this.threads[id] ?? []; }
   async addUserFollowUp(): Promise<{ threadId?: string }> { if (!this.followUpVerified) throw new CapabilityUnverifiedError('follow-up'); return { threadId: `T-${++this.n}` }; }
   verifyAndNormalizeWebhook = (raw: Buffer, headers: Record<string, any>): SupportInboundEvent[] => {
     if (!this.withWebhook) throw new Error('n/a');

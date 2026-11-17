@@ -12,3 +12,8 @@
 
 Known staleness: `PHASE-1-STATUS.md` says "do not start Phase 2" and mentions one migration; there are now five. Phase 2 work is tracked in the Phase 2 branch, not in those files. Where a historical document disagrees with the code or `ARCHITECTURE.md`, trust the code.
 - [SUPPORT-ATTACHMENTS.md](SUPPORT-ATTACHMENTS.md): attachment upload/download design, limits, security model, what is unverified.
+- [INVESTMENT-JOURNEY.md](INVESTMENT-JOURNEY.md): suitability and scheme Riskometer linking, data file format, gating.
+- [NOTIFICATIONS.md](NOTIFICATIONS.md): SMS/WhatsApp architecture, templates, DLT, Interakt, ZeptoMail webhooks.
+- [INTEGRATION-VERIFICATION-RUNBOOK.md](INTEGRATION-VERIFICATION-RUNBOOK.md): operator steps to verify Supabase, Zoho Desk, ZeptoMail; KYC provider onboarding.
+- [ANDROID-RELEASE.md](ANDROID-RELEASE.md): APK/AAB readiness and EAS steps.
+- [RELEASE-CANDIDATE-V4.md](RELEASE-CANDIDATE-V4.md): status matrix for this release candidate.

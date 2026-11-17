@@ -15,6 +15,7 @@ export interface AppConfig {
   emailProvider: 'console' | 'zeptomail';
   zeptoToken?: string;
   zeptoBase: string;
+  zeptoWebhookSecret?: string;
   emailTimeoutMs: number;
   emailRetryBaseMs: number;
   emailFromAddress: string;
@@ -57,10 +58,22 @@ export function loadConfig(env = process.env): AppConfig {
   if (isProd && env.THROTTLE_DISABLED === 'true') {
     throw new Error('THROTTLE_DISABLED must never be enabled in production');
   }
+  if (env.ZEPTOMAIL_WEBHOOK_SECRET && env.ZEPTOMAIL_WEBHOOK_SECRET.length < 24) {
+    throw new Error('ZEPTOMAIL_WEBHOOK_SECRET must be at least 24 characters (openssl rand -hex 24)');
+  }
+  if (env.INTERAKT_WEBHOOK_SECRET && env.INTERAKT_WEBHOOK_SECRET.length < 24) {
+    throw new Error('INTERAKT_WEBHOOK_SECRET must be at least 24 characters (openssl rand -hex 24)');
+  }
+  if (isProd && (env.CORS_ORIGIN ?? '').split(',').some((o) => o.trim() === '*')) {
+    throw new Error('CORS_ORIGIN must list explicit origins in production (no wildcard)');
+  }
+  // Secrets must never be exposed to the client bundle: Expo inlines every EXPO_PUBLIC_* variable.
+  const leaked = Object.keys(env).filter((k) => /^EXPO_PUBLIC_/.test(k) && /(SECRET|SERVICE_ROLE|PRIVATE|TOKEN|PASSWORD|REFRESH)/.test(k));
+  if (leaked.length) throw new Error(`Secret-looking variable(s) would be exposed to the mobile app: ${leaked.join(', ')}`);
   if (emailProvider === 'zeptomail' && !env.ZEPTOMAIL_SEND_MAIL_TOKEN) {
     throw new Error('ZEPTOMAIL_SEND_MAIL_TOKEN required when EMAIL_PROVIDER=zeptomail');
   }
-  return {
+  const cfg: AppConfig = {
     nodeEnv,
     isProd,
     port: Number(env.PORT ?? 3000),
@@ -75,11 +88,18 @@ export function loadConfig(env = process.env): AppConfig {
     emailProvider,
     zeptoToken: env.ZEPTOMAIL_SEND_MAIL_TOKEN,
     zeptoBase: env.ZEPTOMAIL_API_BASE ?? 'https://api.zeptomail.in',
+    zeptoWebhookSecret: env.ZEPTOMAIL_WEBHOOK_SECRET || undefined,
     emailTimeoutMs: Number(env.EMAIL_TIMEOUT_MS ?? 8000),
     emailRetryBaseMs: Number(env.EMAIL_RETRY_BASE_MS ?? 300),
     emailFromAddress: env.EMAIL_FROM_ADDRESS ?? 'support@techartha.com',
     emailFromName: env.EMAIL_FROM_NAME ?? 'TechArtha',
   };
+  return cfg;
+}
+
+/** Process-start checks that need the real runtime environment (kept out of loadConfig so config can be unit-tested without a database). */
+export function assertProductionRuntime(env = process.env) {
+  if (env.NODE_ENV === 'production' && !env.DATABASE_URL) throw new Error('DATABASE_URL must be set in production');
 }
 
 export const APP_CONFIG = 'APP_CONFIG';

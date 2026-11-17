@@ -7,8 +7,11 @@ import { loadConfig } from '../src/common/config';
 import { ATTACHMENT_STORE } from '../src/integrations/storage/attachment-store';
 import { SUPPORT_PORT } from '../src/integrations/support/support.port';
 import { KYC_PROVIDER } from '../src/integrations/kyc/kyc.port';
+import { SCHEME_RISKOMETER } from '../src/investing/scheme-riskometer';
 import { INVESTMENT_PROVIDER } from '../src/investing/investment-provider';
 import { EmailService } from '../src/notifications/email.provider';
+import { SMS_PORT, WHATSAPP_PORT } from '../src/notifications/messaging';
+import { NOTIFY_APPROVALS } from '../src/notifications/notification.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
 export const hasDb = Boolean(process.env.TEST_DATABASE_URL);
@@ -29,7 +32,7 @@ export class CapturingEmail {
   }
 }
 
-export async function makeApp(opts: { throttle?: boolean; provider?: any; kycProvider?: any; supportPort?: any; store?: any } = {}) {
+export async function makeApp(opts: { throttle?: boolean; provider?: any; kycProvider?: any; supportPort?: any; store?: any; riskometer?: any; sms?: any; whatsapp?: any; approvals?: any } = {}) {
   process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
   process.env.DIRECT_URL = process.env.TEST_DATABASE_URL;
   if (opts.throttle) delete process.env.THROTTLE_DISABLED; else process.env.THROTTLE_DISABLED = 'true';
@@ -39,6 +42,10 @@ export async function makeApp(opts: { throttle?: boolean; provider?: any; kycPro
   if (opts.provider) b = b.overrideProvider(INVESTMENT_PROVIDER).useValue(opts.provider);
   if (opts.supportPort) b = b.overrideProvider(SUPPORT_PORT).useValue(opts.supportPort);
   if (opts.store) b = b.overrideProvider(ATTACHMENT_STORE).useValue(opts.store);
+  if (opts.sms) b = b.overrideProvider(SMS_PORT).useValue(opts.sms);
+  if (opts.whatsapp) b = b.overrideProvider(WHATSAPP_PORT).useValue(opts.whatsapp);
+  if (opts.approvals) b = b.overrideProvider(NOTIFY_APPROVALS).useValue(opts.approvals);
+  if (opts.riskometer) b = b.overrideProvider(SCHEME_RISKOMETER).useValue(opts.riskometer);
   if (opts.kycProvider) b = b.overrideProvider(KYC_PROVIDER).useValue(opts.kycProvider);
   const mod = await b.compile();
   const app = mod.createNestApplication<NestExpressApplication>({ rawBody: true });

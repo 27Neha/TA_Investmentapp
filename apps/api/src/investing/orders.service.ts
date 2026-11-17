@@ -4,6 +4,7 @@ import { AuditService } from '../inbox/inbox.service';
 import { canRetry, PaymentState } from '../integrations/lifecycle/payment';
 import { PrismaService } from '../prisma/prisma.service';
 import { InvestingGate } from './investing-gate.service';
+import { SuitabilityService } from './suitability.service';
 import { INVESTMENT_PROVIDER, InvestmentProvider } from './investment-provider';
 import { LifecycleService } from './lifecycle.service';
 
@@ -21,13 +22,27 @@ const sipView = (s: any) => ({ id: s.id, mandateId: s.mandateId, schemeCode: s.s
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService, private readonly gate: InvestingGate, private readonly life: LifecycleService, private readonly audit: AuditService, @Inject(INVESTMENT_PROVIDER) private readonly provider: InvestmentProvider) {}
+  constructor(private readonly prisma: PrismaService, private readonly gate: InvestingGate, private readonly life: LifecycleService, private readonly audit: AuditService, private readonly suit: SuitabilityService, @Inject(INVESTMENT_PROVIDER) private readonly provider: InvestmentProvider) {}
+
+  /**
+   * Suitability linking. UNKNOWN (no assessment, outdated assessment or no verified riskometer) blocks the order: we never guess.
+   * A mismatch needs the user's explicit, audited acknowledgement. This is a flag, never advice; it does not make any order more likely to succeed.
+   */
+  private async enforceSuitability(userId: string, schemeCode: string, ack?: boolean) {
+    const s = await this.suit.check(userId, schemeCode);
+    if (s.status === 'UNKNOWN') throw new FeatureUnavailable(s.reasons.length ? s.reasons : ['SUITABILITY_UNKNOWN']);
+    if (s.status !== 'CONSISTENT') {
+      if (!ack) throw new ConflictException({ statusCode: 409, error: 'RISK_ACK_REQUIRED', message: 'This scheme is above your risk profile. Please confirm that you understand before continuing.', suitability: s });
+      await this.audit.record(userId, 'INVEST_RISK_MISMATCH_ACK', 'Scheme', schemeCode, { status: s.status, level: s.scheme?.level, band: s.profile?.band, policy: s.policyVersion });
+    }
+  }
 
   // ---------------------------------------------------------------- payments
   /** Creates (or idempotently returns) a payment attempt. Fails closed with explicit reasons. Never marks anything successful. */
-  async startPayment(userId: string, i: { schemeCode: string; schemeName: string; amount: number; clientRequestId: string; method?: string }) {
+  async startPayment(userId: string, i: { schemeCode: string; schemeName: string; amount: number; clientRequestId: string; method?: string; acknowledgeRisk?: boolean }) {
     const g = await this.gate.check(userId, 'LUMPSUM');
     if (!g.enabled) throw new FeatureUnavailable(g.reasons);
+    await this.enforceSuitability(userId, i.schemeCode, i.acknowledgeRisk);
     const dup = await this.prisma.investmentOrder.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey: i.clientRequestId } }, include: { payments: { orderBy: { attempt: 'desc' }, take: 1 } } });
     if (dup) return payView(dup.payments[0]);
     let paymentId: string;
@@ -125,9 +140,10 @@ export class OrdersService {
   }
 
   // ---------------------------------------------------------------- SIPs
-  async createSip(userId: string, i: { schemeCode: string; schemeName: string; amount: number; frequency: string; dayOfMonth?: number; startDate: string; mandateId?: string; clientRequestId: string }) {
+  async createSip(userId: string, i: { schemeCode: string; schemeName: string; amount: number; frequency: string; dayOfMonth?: number; startDate: string; mandateId?: string; clientRequestId: string; acknowledgeRisk?: boolean }) {
     const g = await this.gate.check(userId, 'SIP');
     if (!g.enabled) throw new FeatureUnavailable(g.reasons);
+    await this.enforceSuitability(userId, i.schemeCode, i.acknowledgeRisk);
     const dup = await this.prisma.sipPlan.findUnique({ where: { userId_idempotencyKey: { userId, idempotencyKey: i.clientRequestId } } });
     if (dup) return sipView(dup);
     if (i.mandateId && !(await this.prisma.mandate.findFirst({ where: { id: i.mandateId, userId } }))) throw new NotFoundException('Mandate not found.');

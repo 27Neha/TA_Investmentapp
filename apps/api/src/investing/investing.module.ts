@@ -5,6 +5,9 @@ import { MeModule } from '../me/me.module';
 import { InvestingGate } from './investing-gate.service';
 import { InvestingController } from './investing.controller';
 import { INVESTMENT_PROVIDER, UnconfiguredInvestmentProvider } from './investment-provider';
+import { createSchemeRiskometer, SCHEME_RISKOMETER } from './scheme-riskometer';
+import { SuitabilityController } from './suitability.controller';
+import { SuitabilityService } from './suitability.service';
 import { LifecycleService } from './lifecycle.service';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
@@ -14,12 +17,13 @@ import { TransactionsController } from './transactions.controller';
 
 @Module({
   imports: [AuthModule, MeModule, FlagsModule],
-  controllers: [InvestingController, TransactionsController, OrdersController, ProviderWebhookController],
+  controllers: [SuitabilityController, InvestingController, TransactionsController, OrdersController, ProviderWebhookController],
   providers: [
     { provide: TRANSACTION_PROVIDER, useClass: UnconfiguredProvider },
     { provide: INVESTMENT_PROVIDER, useClass: UnconfiguredInvestmentProvider }, // fails closed until a verified provider adapter is supplied
-    InvestingGate, LifecycleService, OrdersService,
+    { provide: SCHEME_RISKOMETER, useFactory: () => createSchemeRiskometer(process.env, process.env.NODE_ENV === 'production') },
+    SuitabilityService, InvestingGate, LifecycleService, OrdersService,
   ],
-  exports: [LifecycleService],
+  exports: [LifecycleService, SuitabilityService],
 })
 export class InvestingModule {}
