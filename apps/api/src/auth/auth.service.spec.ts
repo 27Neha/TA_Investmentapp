@@ -121,3 +121,26 @@ describe('refresh token rotation', () => {
     expect(s.prisma.refreshToken.update.mock.calls[0][0].data.replacedBy).toBe(sha256(pair.refreshToken));
   });
 });
+
+describe('AuthService.signup consent activation', () => {
+  const dto: any = { fullName: 'Test User', email: 'a@b.com', mobile: '9876543210', dateOfBirth: '1990-05-20', password: 'Correct#Horse9', locale: 'en', acceptTerms: true, acceptPrivacy: true, termsVersion: 'v1', privacyVersion: 'v1' };
+  const docs = (reviewed: boolean) => ({ findFirst: jest.fn(async ({ where }: any) => ({ id: `d-${where.kind}`, kind: where.kind, reviewedBy: reviewed ? 'counsel' : null })) });
+  const prodCfg = { ...cfg, isProd: true, nodeEnv: 'production' };
+  const build = (reviewed: boolean, c: any) => {
+    const { svc, prisma } = setup(null, { disclosureVersion: docs(reviewed), user: { findFirst: jest.fn(async () => null), create: jest.fn(async () => ({ id: 'u9', email: 'a@b.com' })), findUnique: jest.fn(), update: jest.fn() } });
+    (svc as any).cfg = c; return { svc, prisma };
+  };
+  it('is refused in production while the legal documents are unreviewed, and creates nothing', async () => {
+    const { svc, prisma } = build(false, prodCfg);
+    await expect(svc.signup(dto, {})).rejects.toMatchObject({ response: expect.objectContaining({ code: 'LEGAL_NOT_APPROVED' }) });
+    expect(prisma.user.create).not.toHaveBeenCalled();
+  });
+  it('is allowed in production once both documents are reviewed', async () => {
+    const { svc, prisma } = build(true, prodCfg);
+    await svc.signup(dto, {}); expect(prisma.user.create).toHaveBeenCalled();
+  });
+  it('is allowed with draft documents outside production (development and tests)', async () => {
+    const { svc, prisma } = build(false, cfg);
+    await svc.signup(dto, {}); expect(prisma.user.create).toHaveBeenCalled();
+  });
+});

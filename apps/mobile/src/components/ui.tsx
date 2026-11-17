@@ -5,9 +5,9 @@ import { colors, MIN_TOUCH, radii, spacing, type } from '../theme/tokens';
 /** Scrollable, keyboard-aware screen body. Safe-area insets are applied ONCE, by the navigator header and tab bar. */
 export function Screen({ children, scroll = true }: { children: React.ReactNode; scroll?: boolean }) {
   const body = scroll ? (
-    <ScrollView contentContainerStyle={s.screen} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+    <ScrollView contentContainerStyle={[s.screen, { paddingBottom: spacing.xl * 3 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>{children}</ScrollView>
   ) : (<View style={s.screen}>{children}</View>);
-  return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>{body}</KeyboardAvoidingView>;
+  return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>{body}</KeyboardAvoidingView>;
 }
 
 export const Title = ({ children }: { children: React.ReactNode }) => <Text accessibilityRole="header" style={[type.title, { color: colors.text }]}>{children}</Text>;

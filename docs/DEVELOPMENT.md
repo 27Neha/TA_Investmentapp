@@ -54,7 +54,7 @@ Never point `TEST_DATABASE_URL`, `DATABASE_URL` or any command at Supabase produ
 | Mobile typecheck | `cd apps/mobile && npm run typecheck` |
 | Translation integrity | `cd apps/mobile && npm run i18n:check` |
 | Android JS bundle (not an APK) | `cd apps/mobile && npm run export:android` |
-| Seed | `cd apps/api && npm run seed` |
+| Seed (required once on a LOCAL database: signup needs the Terms and Privacy drafts) | `cd apps/api && npm run seed` |
 | Lint (all / per app) | `npm run lint` / `lint:api` / `lint:mobile` / `lint:admin` |
 | Format check / write | `npm run format:check` / `npm run format` (do not mass-format existing files without agreement) |
 

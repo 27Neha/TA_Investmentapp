@@ -1,13 +1,22 @@
 /* Seeds placeholder disclosures (clearly NOT legally reviewed) + default feature flags (all OFF). */
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+import { DRAFT_DISCLOSURES, DRAFT_VERSION } from '../src/consent/draft-disclosures';
 import { DEFAULT_FLAGS } from '../src/flags/flags.service';
 import { hashPassword, validatePasswordStrength } from '../src/common/password';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
 async function main() {
   const TITLES: Record<string, string> = { TERMS: 'Terms of Use', PRIVACY: 'Privacy Policy', RISK: 'Mutual Fund Risk Disclosure', DISTRIBUTOR: 'Distributor Disclosure', SCHEME: 'Scheme-related Disclosures' };
-  for (const kind of ['TERMS', 'PRIVACY', 'RISK', 'DISTRIBUTOR', 'SCHEME']) {
+  // Terms and Privacy: a structured DRAFT (reviewedBy stays null). Production signup stays blocked until reviewed text is supplied.
+  for (const d of DRAFT_DISCLOSURES) {
+    await prisma.disclosureVersion.upsert({
+      where: { kind_version_locale: { kind: d.kind, version: DRAFT_VERSION, locale: 'en' } },
+      update: {},
+      create: { kind: d.kind, version: DRAFT_VERSION, locale: 'en', effectiveFrom: new Date(), title: d.title, body: d.body },
+    });
+  }
+  for (const kind of ['RISK', 'DISTRIBUTOR', 'SCHEME']) {
     await prisma.disclosureVersion.upsert({
       where: { kind_version_locale: { kind, version: '0.1-draft', locale: 'en' } },
       update: {},

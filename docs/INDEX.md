@@ -17,3 +17,4 @@ Known staleness: `PHASE-1-STATUS.md` says "do not start Phase 2" and mentions on
 - [INTEGRATION-VERIFICATION-RUNBOOK.md](INTEGRATION-VERIFICATION-RUNBOOK.md): operator steps to verify Supabase, Zoho Desk, ZeptoMail; KYC provider onboarding.
 - [ANDROID-RELEASE.md](ANDROID-RELEASE.md): APK/AAB readiness and EAS steps.
 - [RELEASE-CANDIDATE-V4.md](RELEASE-CANDIDATE-V4.md): status matrix for this release candidate.
+- [SIGNUP-CONSENT-FIX-V4.md](SIGNUP-CONSENT-FIX-V4.md): signup / Terms root causes, fixes, legal content awaiting approval.

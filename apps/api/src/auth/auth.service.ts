@@ -66,6 +66,10 @@ export class AuthService {
     if (!terms || !privacy) {
       throw new BadRequestException('Legal documents are not available. Please try again later.');
     }
+    // Consent activation stays blocked in production until a human-reviewed Terms and Privacy Policy are published.
+    if (this.cfg.isProd && (!terms.reviewedBy || !privacy.reviewedBy)) {
+      throw new ForbiddenException({ statusCode: 403, code: 'LEGAL_NOT_APPROVED', message: 'Account creation is not open yet: the legal documents are awaiting approval.' });
+    }
 
     const existing = await this.prisma.user.findFirst({
       where: { OR: [{ email: dto.email }, { mobile }] },

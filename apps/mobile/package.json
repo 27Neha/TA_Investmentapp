@@ -30,6 +30,7 @@
     "typecheck": "tsc --noEmit",
     "i18n:check": "node scripts/i18n-check.js",
     "test:attachments": "node --test scripts/attachment-rules.test.mjs",
+    "test:signup": "node --test scripts/signup-rules.test.mjs",
     "export:android": "expo export --platform android"
   },
   "private": true

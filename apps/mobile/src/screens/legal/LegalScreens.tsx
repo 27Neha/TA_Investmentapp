@@ -1,9 +1,13 @@
 import { useNavigation, useRoute } from '@react-navigation/native';
-import React, { useState } from 'react';
-import { api } from '../../api/client';
+import React, { useMemo, useState } from 'react';
+import { Text, View } from 'react-native';
+import { api, ApiError } from '../../api/client';
 import { Card, H2, NavRow, Pill, Segments, Small } from '../../components/cards';
 import { LoadGate, Row, useErrMsg, useLoad } from '../../components/kit';
-import { Body, Button, Field, Notice, Screen, Title } from '../../components/ui';
+import { Body, Button, Check, Field, Notice, Screen, Title } from '../../components/ui';
+import { hasLegalPlaceholders, parseLegalBody } from '../../lib/legal-format';
+import { asDisclosure } from '../../lib/signup-rules';
+import { colors, spacing, type } from '../../theme/tokens';
 import { useI18n } from '../../i18n';
 import { TranslationKey } from '../../i18n/en';
 
@@ -47,21 +51,40 @@ export function LegalScreen() {
   );
 }
 
-/** Works before AND after login (public endpoint). */
+/** Works before AND after login (public endpoint). Opened from sign-up it also offers an explicit "I have read and accept" step. */
 export function LegalDocScreen() {
   const { t, locale } = useI18n();
-  const { kind } = (useRoute().params ?? {}) as { kind: string };
+  const nav = useNavigation<any>();
+  const { kind, from } = (useRoute().params ?? {}) as { kind: string; from?: string };
   const d = useLoad(() => api<any>(`/v1/disclosures/latest?kind=${kind}&locale=${locale}`));
+  const [read, setRead] = useState(false);
+  const doc = asDisclosure(d.data); // an empty or malformed response is NOT a document
+  const blocks = useMemo(() => (doc ? parseLegalBody(doc.body) : []), [doc?.body]);
+  const missing = !d.loading && !d.error && !doc;
+  const notPublished = d.error instanceof ApiError && d.error.status === 404;
   return (
     <Screen>
-      <LoadGate loading={d.loading} error={d.error} onRetry={d.reload}>
-        {d.data ? (<>
-          <Title>{d.data.title}</Title>
-          <Small>{t('legal.version', { v: d.data.version })} · {t('legal.effective', { d: String(d.data.effectiveFrom ?? '').slice(0, 10) })}</Small>
-          {!d.data.reviewed ? <Notice text={t('legal.draftNote')} /> : null}
-          <Body>{d.data.body}</Body>
-        </>) : <Notice text={t('signup.legalUnavailable')} />}
-      </LoadGate>
+      {notPublished || missing ? <Notice text={t('legal.notPublished')} /> : (
+        <LoadGate loading={d.loading} error={d.error} onRetry={d.reload}>
+          {doc ? (<>
+            <Title>{doc.title || t(`legal.k.${kind}` as TranslationKey)}</Title>
+            <Small>{t('legal.version', { v: doc.version })}{doc.effectiveFrom ? ` · ${t('legal.effective', { d: doc.effectiveFrom.slice(0, 10) })}` : ''}</Small>
+            {!doc.reviewed ? <Notice tone="error" text={t('legal.notApprovedBanner')} /> : null}
+            {!doc.reviewed && hasLegalPlaceholders(doc.body) ? <Small>{t('legal.placeholders')}</Small> : null}
+            <View accessibilityLabel={doc.title} style={{ gap: spacing.md }}>
+              {blocks.map((b, i) => b.type === 'h1' ? <Text key={i} accessibilityRole="header" style={[type.heading, { color: colors.text, marginTop: spacing.md }]}>{b.text}</Text>
+                : b.type === 'h2' ? <Text key={i} accessibilityRole="header" style={[type.body, { color: colors.text, fontWeight: '700' }]}>{b.text}</Text>
+                : b.type === 'li' ? <View key={i} style={{ flexDirection: 'row', gap: spacing.sm, paddingLeft: spacing.sm }}><Text style={[type.body, { color: colors.text }]}>•</Text><Text style={[type.body, { color: colors.text, flex: 1 }]}>{b.text}</Text></View>
+                : <Text key={i} style={[type.body, { color: colors.text }]}>{b.text}</Text>)}
+            </View>
+            {from === 'signup' && (kind === 'TERMS' || kind === 'PRIVACY') ? (<>
+              <Check label={t('legal.readAccept')} value={read} onChange={setRead} />
+              <Button label={t('legal.acceptReturn')} disabled={!read} onPress={() => nav.popTo('Signup', { accepted: { kind, version: doc.version } })} />
+              <Button variant="secondary" label={t('legal.backNoAccept')} onPress={() => nav.goBack()} />
+            </>) : null}
+          </>) : null}
+        </LoadGate>
+      )}
     </Screen>
   );
 }
